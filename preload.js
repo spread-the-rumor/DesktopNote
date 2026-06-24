@@ -44,4 +44,6 @@ contextBridge.exposeInMainWorld('recall', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (payload) => ipcRenderer.invoke('save-settings', payload),
   restartApp: () => ipcRenderer.invoke('restart-app'),
+  // The running app version — shown in the sidebar.
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 });

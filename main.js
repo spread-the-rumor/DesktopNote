@@ -223,6 +223,10 @@ app.whenReady().then(async () => {
     app.quit();
   });
 
+  // The running app version (from package.json), shown in the sidebar — also a
+  // visible marker that an auto-update applied.
+  ipcMain.handle('get-app-version', () => app.getVersion());
+
   // Renderer → main → backend: post the current transcript to Slack on demand.
   ipcMain.handle('send-to-slack', async (_event, payload) => backend.sendToSlack(payload));
 

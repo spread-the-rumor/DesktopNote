@@ -1201,6 +1201,12 @@ window.addEventListener('DOMContentLoaded', () => {
   loadSlackTargets();
   loadGetOverviewProjects();
   refreshConfiguredState();
+  // Show the running app version in the sidebar (also a visible marker that an
+  // auto-update applied).
+  window.recall?.getAppVersion?.().then((v) => {
+    const el = document.getElementById('app-version');
+    if (el && v) el.textContent = `v${v}`;
+  });
 });
 
 // ---- Live events from main ----

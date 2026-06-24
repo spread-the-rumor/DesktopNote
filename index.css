@@ -84,6 +84,12 @@ body {
   font-size: 1.05rem;
 }
 
+.app-version {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
 .sidebar-search {
   padding: 0.7rem 0.8rem;
   border-bottom: 1px solid var(--border);
