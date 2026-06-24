@@ -35,6 +35,21 @@ const BACKEND_PORT = 3100;
 
 let mainWindow = null;
 let backendServer = null;
+// True once RecallAiSdk.init() has been called. shutdown() throws on some SDK
+// versions if init() never ran (e.g. the app quit before whenReady finished),
+// so we gate the teardown on this.
+let sdkInited = false;
+// Guards the before-quit teardown against double-invocation: quitting fires
+// window-all-closed → app.quit() → before-quit, and an explicit quit fires it
+// again. Closing an already-closed server / shutting an already-shut SDK throws.
+let didTeardown = false;
+// Set once the app starts quitting. On shutdown the Recall SDK's native agent
+// (and the backend's sockets) can be mid-write when their pipe is torn down,
+// which surfaces as an asynchronous, uncatchable `write EPIPE` / `ECONNRESET`
+// on the stream's write callback — Electron then shows it as a "JavaScript
+// error in the main process" dialog on close. We use this flag to swallow ONLY
+// those benign socket errors during quit (see the uncaughtException handler).
+let isQuitting = false;
 // windowId of an in-progress manual "Huddle" recording (null when idle). The
 // Recall SDK identifies a desktop-audio session the same way it does a detected
 // meeting window — by a windowId — so we hold onto it to stop the recording.
@@ -440,6 +455,8 @@ app.whenReady().then(async () => {
     apiUrl: 'https://us-west-2.recall.ai',
     acquirePermissionsOnStartup: ['accessibility', 'microphone', 'screen-capture', 'system-audio'],
   });
+  // Mark the SDK as initialized so before-quit knows shutdown() is safe to call.
+  sdkInited = true;
 
   createWindow();
 
@@ -453,16 +470,54 @@ app.whenReady().then(async () => {
 });
 
 // Release the backend port and shut the SDK down cleanly on exit, so the next
-// launch doesn't hit EADDRINUSE from a leftover listener.
+// launch doesn't hit EADDRINUSE from a leftover listener. Each step is guarded
+// independently and the whole thing runs at most once (didTeardown), so a
+// double quit, a never-initialized SDK, or an already-closed server can't throw
+// an uncaught error on close.
 app.on('before-quit', () => {
-  try {
-    RecallAiSdk.shutdown();
-  } catch (err) {
-    console.error('SDK shutdown error:', err);
+  isQuitting = true;
+  if (didTeardown) {
+    return;
   }
+  didTeardown = true;
+
+  if (sdkInited) {
+    try {
+      RecallAiSdk.shutdown();
+    } catch (err) {
+      console.error('SDK shutdown error:', err);
+    }
+  }
+
   if (backendServer) {
-    backendServer.close();
+    try {
+      backendServer.close();
+    } catch (err) {
+      console.error('backend close error:', err);
+    }
+    backendServer = null;
   }
+});
+
+// Last-resort guard for the teardown race described on `isQuitting` above. A
+// failed socket write from the SDK's native agent (or a backend connection)
+// completes asynchronously, so it escapes the synchronous try/catch in
+// before-quit and bubbles up as an uncaught exception — which Electron renders
+// as an alarming "A JavaScript error occurred in the main process" dialog as
+// the app closes. We swallow ONLY connection-teardown errors (EPIPE,
+// ECONNRESET, ECONNABORTED) and ONLY while quitting; anything else, or any
+// error outside of quit, is re-thrown so real bugs still surface loudly.
+const BENIGN_SHUTDOWN_CODES = new Set(['EPIPE', 'ECONNRESET', 'ECONNABORTED']);
+process.on('uncaughtException', (err) => {
+  if (isQuitting && err && BENIGN_SHUTDOWN_CODES.has(err.code)) {
+    console.warn(`Ignoring ${err.code} during shutdown:`, err.message);
+    return;
+  }
+  // Not a shutdown-race socket error: this is a genuine bug. Log it and exit
+  // non-zero so it still fails loudly (rather than being silently swallowed),
+  // matching Electron's default uncaught-exception behavior.
+  console.error('Uncaught exception:', err);
+  app.exit(1);
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

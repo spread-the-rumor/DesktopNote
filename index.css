@@ -209,13 +209,26 @@ body {
   max-height: 45%;
 }
 
-.trash-toggle {
+/* Bottom rail: the Settings gear sits to the left of the Trash toggle. */
+.trash-rail {
   flex: none;
+  display: flex;
+  align-items: stretch;
+}
+
+.trash-rail .settings-btn {
+  flex: none;
+  align-self: center;
+  margin-left: 1rem;
+}
+
+.trash-toggle {
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  width: 100%;
+  min-width: 0;
   padding: 0.7rem 1rem;
   background: none;
   border: none;
