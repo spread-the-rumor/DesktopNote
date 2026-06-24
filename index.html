@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recall Notes</title>
+  </head>
+  <body>
+    <div class="app">
+      <!-- Sidebar: brand, live status, and meeting history list -->
+      <aside class="sidebar">
+        <div class="sidebar-head">
+          <div class="brand">
+            <span class="brand-mark">●</span>
+            <span class="brand-name">Recall</span>
+          </div>
+          <div class="sidebar-controls">
+            <span id="status" class="pill is-waiting">
+              <span class="pill-dot"></span>
+              <span class="pill-text">Waiting for a meeting…</span>
+            </span>
+            <button id="huddle-btn" class="huddle-btn" type="button">
+              <span class="huddle-dot"></span>
+              <span class="huddle-text">Huddle</span>
+            </button>
+          </div>
+        </div>
+        <div class="sidebar-search">
+          <input
+            id="search-input"
+            class="search-input"
+            type="search"
+            placeholder="Search meetings…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <div id="notes-list" class="notes-list">
+          <!-- .note-item cards injected by renderer.js -->
+        </div>
+        <!-- Trash: soft-deleted meetings, recoverable. Collapsed by default. -->
+        <div class="sidebar-trash">
+          <button id="trash-toggle" class="trash-toggle" type="button" aria-expanded="false">
+            <span class="trash-toggle-left">
+              <span class="trash-icon">🗑</span>
+              <span class="trash-label">Trash</span>
+              <span id="trash-count" class="trash-count" hidden></span>
+            </span>
+            <span class="trash-chevron">▸</span>
+          </button>
+          <div id="trash-list" class="trash-list" hidden>
+            <!-- .trash-item cards injected by renderer.js -->
+          </div>
+        </div>
+      </aside>
+
+      <!-- Editor pane: the open meeting note, or an empty state -->
+      <main class="editor">
+        <!-- Empty state, shown when no note is selected -->
+        <section id="empty-state" class="empty">
+          <div class="empty-icon">🎙️</div>
+          <h2 class="empty-title">No notes yet</h2>
+          <p class="empty-sub">
+            Start a Google Meet call in Chrome. Recall will detect it, record,
+            and a note with the AI summary will appear here when the meeting ends.
+          </p>
+        </section>
+
+        <!-- Note editor -->
+        <article id="note" class="note" hidden>
+          <header class="note-head">
+            <input
+              id="note-title"
+              class="note-title"
+              type="text"
+              placeholder="Untitled meeting"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <p id="note-meta" class="note-meta"></p>
+            <div class="note-toggle" role="tablist">
+              <button id="view-summary-btn" class="toggle-opt is-active" type="button">Summary</button>
+              <button id="view-transcript-btn" class="toggle-opt" type="button">Transcript</button>
+              <button id="view-chat-btn" class="toggle-opt" type="button">Chat</button>
+            </div>
+            <div class="note-actions">
+              <!-- Recording controls: a play link (opens the video in the
+                   browser) + a download button (saves the mp4). Hidden together
+                   when the note has no video. -->
+              <a id="video-link" class="action-btn" href="#" target="_blank" rel="noreferrer" hidden>
+                <svg class="action-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                  <path fill="currentColor" d="M8 5v14l11-7z" />
+                </svg>
+                <span class="action-text">Recording</span>
+              </a>
+              <button id="save-recording-btn" class="action-btn" type="button" title="Download recording" hidden>
+                <svg class="action-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                  <path fill="currentColor" d="M5 20h14v-2H5v2zM12 4v9.17l-3.59-3.58L7 11l5 5 5-5-1.41-1.41L13 13.17V4h-1z" />
+                </svg>
+                <span class="action-text">Download</span>
+              </button>
+              <button id="save-transcript-btn" class="action-btn" type="button" title="Save transcript">
+                <svg class="action-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                  <path fill="currentColor" d="M5 20h14v-2H5v2zM12 4v9.17l-3.59-3.58L7 11l5 5 5-5-1.41-1.41L13 13.17V4h-1z" />
+                </svg>
+                <span class="action-text">Transcript</span>
+              </button>
+            </div>
+
+            <!-- Destination switcher: a "Send to" heading + a Slack/GetOverview
+                 toggle (mirrors the Summary/Transcript/Chat toggle above). Only
+                 the selected destination's controls are shown. -->
+            <div class="send-to">
+              <span class="send-to-heading">Send to</span>
+              <div class="note-toggle send-toggle" role="tablist">
+                <button id="dest-slack-btn" class="toggle-opt is-active" type="button">Slack</button>
+                <button id="dest-go-btn" class="toggle-opt" type="button">GetOverview</button>
+              </div>
+
+              <!-- Slack panel -->
+              <div id="dest-slack-panel" class="dest-panel">
+                <div class="slack-send-row">
+                  <select id="slack-channel" class="slack-channel" aria-label="Slack channel or person" disabled>
+                    <option value="">Loading…</option>
+                  </select>
+                  <button id="slack-btn" class="slack-btn">
+                    <svg class="slack-logo" viewBox="0 0 122.8 122.8" width="16" height="16" aria-hidden="true">
+                      <path fill="#36C5F0" d="M25.8 77.6c0 7.1-5.8 12.9-12.9 12.9S0 84.7 0 77.6s5.8-12.9 12.9-12.9h12.9v12.9zm6.5 0c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9v32.3c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V77.6z"/>
+                      <path fill="#2EB67D" d="M45.2 25.8c-7.1 0-12.9-5.8-12.9-12.9S38.1 0 45.2 0s12.9 5.8 12.9 12.9v12.9H45.2zm0 6.5c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H12.9C5.8 58.1 0 52.3 0 45.2s5.8-12.9 12.9-12.9h32.3z"/>
+                      <path fill="#ECB22E" d="M97 45.2c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9-5.8 12.9-12.9 12.9H97V45.2zm-6.5 0c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V12.9C64.7 5.8 70.5 0 77.6 0s12.9 5.8 12.9 12.9v32.3z"/>
+                      <path fill="#E01E5A" d="M77.6 97c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9-12.9-5.8-12.9-12.9V97h12.9zm0-6.5c-7.1 0-12.9-5.8-12.9-12.9s5.8-12.9 12.9-12.9h32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H77.6z"/>
+                    </svg>
+                    <span class="slack-btn-text">Send</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- GetOverview panel (internal PM tool): submit the
+                   summary/transcript and create tasks from the meeting's action
+                   items. The project dropdown is a global control. -->
+              <div id="dest-go-panel" class="dest-panel getoverview" hidden>
+                <div class="getoverview-row">
+                  <select id="go-project" class="go-project" aria-label="GetOverview project" disabled>
+                    <option value="">Loading…</option>
+                  </select>
+                  <button id="go-refresh-btn" class="go-icon-btn" type="button" title="Refresh projects">↻</button>
+                  <a id="go-open-link" class="go-open-link" href="#" target="_blank" rel="noreferrer" hidden>Open in GetOverview ↗</a>
+                </div>
+                <div class="getoverview-actions">
+                  <button id="go-send-summary-btn" class="action-btn go-btn" type="button">Send summary</button>
+                  <button id="go-send-transcript-btn" class="action-btn go-btn" type="button">Send full transcript</button>
+                  <button id="go-create-tasks-btn" class="action-btn go-btn" type="button">Create tasks from action items</button>
+                </div>
+
+                <!-- Editable action-item rows, revealed by "Create tasks". Each
+                     row: title / assignee / due date / remove. -->
+                <div id="go-tasks" class="go-tasks" hidden>
+                  <div id="go-tasks-rows" class="go-tasks-rows"></div>
+                  <div class="go-tasks-foot">
+                    <button id="go-add-row-btn" class="action-btn" type="button">+ Add row</button>
+                    <button id="go-submit-tasks-btn" class="action-btn go-btn" type="button">Create tasks</button>
+                    <button id="go-cancel-tasks-btn" class="action-btn" type="button">Cancel</button>
+                  </div>
+                  <p id="go-tasks-status" class="go-tasks-status"></p>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <textarea
+            id="simple-editor"
+            class="note-body"
+            spellcheck="false"
+            placeholder="The AI summary will appear here. Edit it freely — changes save automatically and are what gets sent to Slack."
+          ></textarea>
+
+          <!-- Read-only full transcript; shown when the Transcript toggle is active -->
+          <div id="transcript-view" class="transcript-body" hidden></div>
+
+          <!-- AI chat grounded in this meeting's transcript -->
+          <div id="chat-view" class="chat-view" hidden>
+            <div id="chat-messages" class="chat-messages"></div>
+            <form id="chat-form" class="chat-form">
+              <input
+                id="chat-input"
+                class="chat-input"
+                type="text"
+                placeholder="Ask about this meeting…"
+                autocomplete="off"
+              />
+              <button id="chat-send" class="action-btn" type="submit">Ask</button>
+            </form>
+          </div>
+
+          <footer class="note-foot">
+            <span id="save-state" class="save-state"></span>
+            <span id="saved-path" class="saved-path" hidden></span>
+          </footer>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

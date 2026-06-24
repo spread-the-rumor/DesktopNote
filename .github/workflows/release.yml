@@ -1,0 +1,32 @@
+name: Release
+
+# Build the Windows installer and publish it to GitHub Releases whenever a
+# version tag (e.g. v1.0.1) is pushed. The release is created as a draft
+# (see forge.config.js publishers config) — publish it in the GitHub UI to
+# make it go live and auto-update installed apps.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write # required to create the GitHub Release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # `npm ci` re-downloads the Recall SDK's platform-specific native agent.
+      - run: npm ci
+
+      # electron-forge publish builds with the Squirrel maker and uploads the
+      # installer assets to GitHub Releases. GITHUB_TOKEN is provided
+      # automatically by Actions — no manual PAT needed.
+      - run: npm run publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

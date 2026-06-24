@@ -1,0 +1,1075 @@
+:root {
+  --bg: #faf9f7;
+  --bg-alt: #f5f4f1;
+  --surface: #ffffff;
+  --text: #1a1a1a;
+  --muted: #6b7280;
+  --border: #e7e5e1;
+  --accent: #4263eb;
+  --accent-soft: #edf0fe;
+  --green: #2f9e44;
+  --red: #e03131;
+  --gray: #adb5bd;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.05);
+  --sidebar-width: 264px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* The `hidden` attribute must win over class-level `display` rules (e.g.
+   .transcript-body sets display:flex), so the toggle can actually hide a pane. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- Two-pane shell ---- */
+.app {
+  display: flex;
+  height: 100%;
+}
+
+/* ---- Sidebar ---- */
+.sidebar {
+  width: var(--sidebar-width);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--bg-alt);
+}
+
+.sidebar-head {
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.brand-mark {
+  color: var(--accent);
+  font-size: 0.7rem;
+}
+
+.brand-name {
+  font-size: 1.05rem;
+}
+
+.sidebar-search {
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  padding: 0.45rem 0.65rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.search-input::placeholder {
+  color: var(--gray);
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+}
+
+.notes-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.notes-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+  padding: 0.75rem 0.6rem;
+}
+
+.note-item {
+  display: flex;
+  align-items: stretch;
+  border-radius: 8px;
+  margin-bottom: 0.15rem;
+  transition: background 0.12s ease;
+}
+
+.note-item:hover {
+  background: rgba(0, 0, 0, 0.035);
+}
+
+.note-item.active {
+  background: var(--accent-soft);
+}
+
+.note-item-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.55rem 0.65rem;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.note-item-title {
+  font-size: 0.88rem;
+  font-weight: 550;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-item.active .note-item-title {
+  color: var(--accent);
+}
+
+.note-item-date {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.note-item-delete {
+  flex: none;
+  width: 32px;
+  border: none;
+  background: none;
+  color: var(--gray);
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 0;
+  border-radius: 8px;
+  transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+
+.note-item:hover .note-item-delete {
+  opacity: 1;
+}
+
+.note-item-delete:hover {
+  color: var(--red);
+  background: #fff5f5;
+}
+
+/* ---- Trash (soft-deleted meetings) ---- */
+.sidebar-trash {
+  flex: none;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  /* Cap the expanded list so a big trash doesn't push the list off-screen. */
+  max-height: 45%;
+}
+
+.trash-toggle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 550;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.trash-toggle:hover {
+  background: rgba(0, 0, 0, 0.035);
+  color: var(--text);
+}
+
+.trash-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.trash-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.02rem 0.4rem;
+}
+
+.trash-chevron {
+  font-size: 0.7rem;
+  color: var(--gray);
+  transition: transform 0.15s ease;
+}
+
+.trash-toggle[aria-expanded='true'] .trash-chevron {
+  transform: rotate(90deg);
+}
+
+.trash-list {
+  overflow-y: auto;
+  padding: 0 0.5rem 0.5rem;
+}
+
+.trash-empty {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+  padding: 0.4rem 0.6rem 0.6rem;
+}
+
+.trash-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 8px;
+  padding: 0.4rem 0.45rem;
+  transition: background 0.12s ease;
+}
+
+.trash-item:hover {
+  background: rgba(0, 0, 0, 0.035);
+}
+
+.trash-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.trash-item-title {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trash-item-date {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.trash-item-btn {
+  flex: none;
+  border: none;
+  background: none;
+  font-size: 0.78rem;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0.25rem 0.4rem;
+  color: var(--gray);
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.trash-item-btn.restore:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.trash-item-btn.purge:hover {
+  color: var(--red);
+  background: #fff5f5;
+}
+
+/* ---- Status pill ---- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 550;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  align-self: flex-start;
+}
+
+.pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gray);
+  flex: none;
+}
+
+.pill.is-waiting .pill-dot {
+  background: var(--gray);
+}
+
+.pill.is-recording {
+  color: var(--red);
+  border-color: #f5c2c7;
+  background: #fff5f5;
+}
+.pill.is-recording .pill-dot {
+  background: var(--red);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.pill.is-ready {
+  color: var(--green);
+  border-color: #b2f2bb;
+  background: #f4fce3;
+}
+.pill.is-ready .pill-dot {
+  background: var(--green);
+}
+
+.pill.is-error {
+  color: var(--red);
+  border-color: #f5c2c7;
+  background: #fff5f5;
+}
+.pill.is-error .pill-dot {
+  background: var(--red);
+}
+
+/* Status pill + huddle button share a row in the sidebar header. */
+.sidebar-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ---- Huddle (manual record) button ---- */
+.huddle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  align-self: flex-start;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.huddle-btn:hover:not(:disabled) {
+  background: #3651c9;
+  border-color: #3651c9;
+}
+
+.huddle-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.huddle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  flex: none;
+}
+
+.huddle-btn.is-recording {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+.huddle-btn.is-recording:hover:not(:disabled) {
+  background: #c92a2a;
+  border-color: #c92a2a;
+}
+
+.huddle-btn.is-recording .huddle-dot {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+}
+
+/* ---- Editor pane ---- */
+.editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--surface);
+}
+
+/* ---- Empty state ---- */
+.empty {
+  margin: auto;
+  text-align: center;
+  color: var(--muted);
+  padding: 2rem;
+}
+
+.empty-icon {
+  font-size: 2.5rem;
+}
+
+.empty-title {
+  margin: 1rem 0 0.4rem;
+  font-size: 1.25rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.empty-sub {
+  margin: 0 auto;
+  max-width: 24rem;
+  font-size: 0.92rem;
+}
+
+/* ---- Note ---- */
+.note {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 1.75rem 2rem 0;
+  max-width: 820px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.note-head {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.note-title {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: inherit;
+  font-size: 1.6rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  padding: 0;
+}
+
+.note-title::placeholder {
+  color: var(--gray);
+}
+
+.note-meta {
+  margin: 0.3rem 0 0;
+  color: var(--gray);
+  font-size: 0.78rem;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+}
+
+/* ---- Summary / Transcript toggle ---- */
+.note-toggle {
+  display: inline-flex;
+  margin-top: 0.9rem;
+  padding: 0.2rem;
+  gap: 0.15rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.toggle-opt {
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 550;
+  color: var(--muted);
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.toggle-opt:hover:not(.is-active) {
+  color: var(--text);
+}
+
+.toggle-opt.is-active {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.note-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.note-actions a {
+  text-decoration: none;
+}
+
+/* Icon + label inside an action button (Recording / Download / Transcript),
+   matching the inline-SVG approach of the Slack button. */
+.action-btn {
+  gap: 0.45rem;
+}
+
+.action-icon {
+  flex: none;
+  display: block;
+}
+
+/* The video "play" link is an action button tinted with the accent color. */
+#video-link {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+#video-link:hover {
+  background: var(--accent-soft);
+}
+
+/* ---- Editable note body ---- */
+.note-body {
+  flex: 1;
+  min-height: 240px;
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.96rem;
+  line-height: 1.7;
+  color: var(--text);
+  padding: 0 0 1.5rem;
+}
+
+.note-body::placeholder {
+  color: var(--gray);
+}
+
+/* ---- Read-only transcript view ---- */
+.transcript-body {
+  flex: 1;
+  min-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0 0 1.5rem;
+}
+
+.seg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.seg .speaker {
+  font-weight: 650;
+  color: var(--accent);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.seg .words {
+  margin: 0;
+  color: var(--text);
+}
+
+.transcript-empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---- Chat view ---- */
+.chat-view {
+  flex: 1;
+  /* min-height:0 lets the messages area shrink and scroll within the note. */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 1rem;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.25rem 0 1rem;
+}
+
+.chat-empty {
+  color: var(--muted);
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+
+.chat-msg {
+  max-width: 80%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.chat-msg.is-user {
+  align-self: flex-end;
+  background: var(--accent-soft);
+  color: var(--text);
+  border-bottom-right-radius: 4px;
+}
+
+.chat-msg.is-ai {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-msg.is-thinking {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.chat-form {
+  flex: none;
+  display: flex;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.chat-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 0.92rem;
+  color: var(--text);
+  padding: 0.55rem 0.75rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.chat-input:focus {
+  border-color: var(--accent);
+}
+
+.chat-input:disabled {
+  opacity: 0.65;
+}
+
+/* ---- Note footer ---- */
+.note-foot {
+  flex: none;
+  padding: 0.6rem 0 1.25rem;
+  min-height: 1.5rem;
+}
+
+.save-state {
+  font-size: 0.75rem;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.save-state.is-visible {
+  opacity: 1;
+}
+
+.saved-path {
+  display: block;
+  margin: 0.5rem 0 0;
+  color: var(--gray);
+  font-size: 0.75rem;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  word-break: break-all;
+}
+
+/* ---- "Send to" destination switcher (heading + Slack/GetOverview toggle) ---- */
+.send-to {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.send-to-heading {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+/* The Slack/GetOverview toggle reuses .note-toggle/.toggle-opt; align it left. */
+.send-toggle {
+  margin-top: 0;
+  align-self: flex-start;
+}
+
+/* Only the selected destination's controls show (hidden attr does the toggle). */
+.dest-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.slack-send-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Slack-themed channel/person dropdown */
+.slack-channel {
+  max-width: 200px;
+  padding: 0.5rem 0.6rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid rgba(74, 21, 75, 0.25); /* Slack aubergine, soft */
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 550;
+  font-family: inherit;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.slack-channel:hover:not(:disabled),
+.slack-channel:focus:not(:disabled) {
+  border-color: #4a154b; /* Slack aubergine */
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(74, 21, 75, 0.12);
+}
+
+.slack-channel:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+/* ---- Send to Slack button (Slack brand) ---- */
+.slack-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  background: #4a154b; /* Slack aubergine */
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.slack-btn:hover:not(:disabled) {
+  background: #611f69;
+}
+
+.slack-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.slack-btn.is-sent {
+  background: var(--green);
+}
+
+.slack-btn.is-error {
+  background: var(--red);
+}
+
+.slack-logo {
+  flex: none;
+  display: block;
+}
+
+/* ---- Secondary action buttons (Save transcript / Save recording) ---- */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.85rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 550;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: var(--bg-alt);
+  border-color: var(--gray);
+}
+
+.action-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.action-btn.is-done {
+  border-color: #b2f2bb;
+  background: #f4fce3;
+  color: var(--green);
+}
+
+.action-btn.is-error {
+  border-color: #f5c2c7;
+  background: #fff5f5;
+  color: var(--red);
+}
+
+/* ---- GetOverview (internal PM tool) section ---- */
+:root {
+  --go: #0b7285; /* GetOverview accent (teal) */
+  --go-soft: rgba(11, 114, 133, 0.12);
+}
+
+/* .getoverview is a .dest-panel (layout comes from there); it only carries the
+   accent-color custom props for its controls now. */
+
+.getoverview-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.go-project {
+  max-width: 220px;
+  padding: 0.5rem 0.6rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--go-soft);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 550;
+  font-family: inherit;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.go-project:hover:not(:disabled),
+.go-project:focus:not(:disabled) {
+  border-color: var(--go);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--go-soft);
+}
+
+.go-project:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.go-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: var(--surface);
+  color: var(--go);
+  border: 1px solid var(--go-soft);
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.go-icon-btn:hover:not(:disabled) {
+  border-color: var(--go);
+  background: var(--bg-alt);
+}
+
+.go-open-link {
+  font-size: 0.82rem;
+  font-weight: 550;
+  color: var(--go);
+  text-decoration: none;
+}
+
+.go-open-link:hover {
+  text-decoration: underline;
+}
+
+.getoverview-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Primary GetOverview buttons: an action-btn with the GetOverview accent. */
+.go-btn {
+  border-color: var(--go-soft);
+  color: var(--go);
+}
+
+.go-btn:hover:not(:disabled) {
+  border-color: var(--go);
+  background: var(--bg-alt);
+}
+
+/* ---- Create-tasks editor (revealed rows) ---- */
+.go-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+  padding: 0.75rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.go-tasks-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.go-task-row {
+  display: grid;
+  grid-template-columns: 1fr 140px 150px 28px;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.go-task-row input {
+  padding: 0.4rem 0.5rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+
+.go-task-row input:focus {
+  outline: none;
+  border-color: var(--go);
+  box-shadow: 0 0 0 2px var(--go-soft);
+}
+
+.go-task-row .go-row-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--gray);
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.go-task-row .go-row-remove:hover {
+  color: var(--red);
+  background: #fff5f5;
+}
+
+.go-task-row.is-done input {
+  border-color: #b2f2bb;
+  background: #f4fce3;
+}
+
+.go-task-row.is-error input {
+  border-color: #f5c2c7;
+  background: #fff5f5;
+}
+
+.go-tasks-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.go-tasks-status {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-soft, var(--gray));
+  min-height: 1em;
+}
