@@ -1,7 +1,7 @@
 {
   "name": "desktopnote",
   "productName": "DesktopNote",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Desktop meeting notetaker built on the Recall AI Desktop SDK",
   "main": ".webpack/main",
   "private": true,
