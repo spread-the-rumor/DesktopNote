@@ -23,6 +23,11 @@
               <span class="huddle-dot"></span>
               <span class="huddle-text">Huddle</span>
             </button>
+            <button id="settings-btn" class="settings-btn" type="button" title="Settings" aria-label="Settings">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94 0 .33.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.13.22.39.31.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.25.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.09.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/>
+              </svg>
+            </button>
           </div>
         </div>
         <div class="sidebar-search">
@@ -197,6 +202,64 @@
             <span id="saved-path" class="saved-path" hidden></span>
           </footer>
         </article>
+
+        <!-- Settings view: the in-app replacement for .env. Users paste their
+             own API keys here; they persist to settings.json in userData. Shown
+             in place of the note/empty-state when the sidebar gear is clicked. -->
+        <section id="settings-view" class="settings" hidden>
+          <header class="settings-head">
+            <h2 class="settings-title">Settings</h2>
+            <p class="settings-sub">
+              Your API keys are stored only on this computer and never leave it.
+            </p>
+          </header>
+
+          <div class="settings-form">
+            <div class="settings-field">
+              <label class="settings-label" for="set-recall-key">
+                Recall API key <span class="settings-required">required</span>
+              </label>
+              <input id="set-recall-key" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="Your Recall.ai API key" />
+              <p class="settings-help">Required to detect and record meetings. From your Recall.ai dashboard.</p>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-label" for="set-recall-url">Recall API URL</label>
+              <input id="set-recall-url" class="settings-input" type="text" autocomplete="off" spellcheck="false" placeholder="https://us-west-2.recall.ai" />
+              <p class="settings-help">Optional. Leave blank to use the default region.</p>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-label" for="set-requesty-key">AI summary key</label>
+              <input id="set-requesty-key" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="requesty.ai API key" />
+              <p class="settings-help">Optional. Powers AI summaries, chat, and action-item extraction. Without it, those show an "unavailable" message.</p>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-label" for="set-slack-token">Slack bot token</label>
+              <input id="set-slack-token" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="xoxb-…" />
+              <p class="settings-help">Optional. Enables "Send to Slack". The Bot User OAuth Token from your Slack app.</p>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-label" for="set-go-url">GetOverview base URL</label>
+              <input id="set-go-url" class="settings-input" type="text" autocomplete="off" spellcheck="false" placeholder="https://…" />
+              <p class="settings-help">Optional. Base URL of your GetOverview instance.</p>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-label" for="set-go-token">GetOverview access token</label>
+              <input id="set-go-token" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="go_live_…" />
+              <p class="settings-help">Optional. Personal Access Token for GetOverview.</p>
+            </div>
+
+            <div class="settings-actions">
+              <button id="settings-save-btn" class="action-btn go-btn" type="button">Save</button>
+              <button id="settings-done-btn" class="action-btn" type="button">Done</button>
+              <span id="settings-status" class="settings-status"></span>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   </body>

@@ -26,9 +26,14 @@ if (!process.env.REQUESTY_API_KEY && !process.env.RECALLAI_REQUEST_KEY) {
   console.warn('REQUESTY_API_KEY not set — AI summaries will be unavailable.');
 }
 
+// The Recall API key is REQUIRED to record, but it's no longer fatal at startup:
+// a packaged app has no .env, and the key is now supplied via the in-app Settings
+// screen (persisted to userData, layered onto process.env before this module is
+// required — see main.js). If it's still missing, we degrade gracefully like the
+// Slack/GetOverview/AI keys do — the app launches, and the recording routes return
+// a clear "not configured" error instead of the process dying silently.
 if (!RECALL_API_KEY) {
-  console.error('Missing RECALL_API_KEY. Create a .env file with RECALL_API_KEY=your_key');
-  process.exit(1);
+  console.warn('RECALL_API_KEY not set — recording is unavailable until a key is added in Settings.');
 }
 
 // Recall expects the Authorization header in the form "Token <api_key>".
@@ -40,6 +45,13 @@ const authHeaders = {
 
 app.post('/api/create_sdk_recording', async (req, res) => {
   try {
+    // Recording needs the Recall API key. If it wasn't configured (no Settings
+    // entry yet), fail clearly instead of sending an unauthenticated request.
+    if (!RECALL_API_KEY) {
+      return res.status(400).json({
+        error: 'Recall API key not configured. Add it in Settings to start recording.',
+      });
+    }
     // This calls Recall.ai on behalf of your Electron app. The recording_config
     // is what requests a transcript: without it Recall uploads the media but
     // never generates one, so media_shortcuts.transcript stays absent. We use

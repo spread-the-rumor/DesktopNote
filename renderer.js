@@ -62,6 +62,21 @@ const goAddRowBtn = document.getElementById('go-add-row-btn');
 const goSubmitTasksBtn = document.getElementById('go-submit-tasks-btn');
 const goCancelTasksBtn = document.getElementById('go-cancel-tasks-btn');
 const goTasksStatusEl = document.getElementById('go-tasks-status');
+// Settings view (the in-app replacement for .env).
+const settingsBtn = document.getElementById('settings-btn');
+const settingsViewEl = document.getElementById('settings-view');
+const settingsSaveBtn = document.getElementById('settings-save-btn');
+const settingsDoneBtn = document.getElementById('settings-done-btn');
+const settingsStatusEl = document.getElementById('settings-status');
+// Map each input element to the exact settings/env key it persists under.
+const SETTINGS_FIELDS = {
+  RECALL_API_KEY: document.getElementById('set-recall-key'),
+  RECALL_API_URL: document.getElementById('set-recall-url'),
+  REQUESTY_API_KEY: document.getElementById('set-requesty-key'),
+  Bot_User_OAuth_Token: document.getElementById('set-slack-token'),
+  GetOverview_BASE_URL: document.getElementById('set-go-url'),
+  GetOverview_Access_Token: document.getElementById('set-go-token'),
+};
 
 // In-memory mirror of the persisted store + the currently open note.
 let meetings = [];
@@ -79,6 +94,10 @@ let isHuddling = false;
 // Loaded GetOverview projects (global control, like the Slack dropdown), keyed
 // for the "Open in GetOverview" link lookup.
 let goProjects = [];
+// The Recall API key as last loaded/saved — used to detect a change on save
+// (which requires a restart to take effect) and to drive the "not configured"
+// state. Loaded once on startup via refreshConfiguredState().
+let lastSavedRecallKey = '';
 
 // ---- Status pill ----
 
@@ -96,6 +115,32 @@ const setStatus = (text, cls) => {
   statusTextEl.textContent = text;
   statusEl.classList.remove('is-waiting', 'is-recording', 'is-ready', 'is-error');
   statusEl.classList.add(cls);
+};
+
+// Reflect whether a Recall API key is configured: with no key the app can't
+// record, so the status pill says so and the empty state nudges toward Settings.
+const updateConfiguredState = (recallKey) => {
+  const configured = Boolean(recallKey);
+  huddleBtn.disabled = !configured;
+  const emptySub = emptyStateEl.querySelector('.empty-sub');
+  if (!configured) {
+    setStatus('Add your Recall API key in Settings', 'is-error');
+    if (emptySub) {
+      emptySub.textContent =
+        'Add your Recall API key in Settings (gear icon, top-left) to detect and record meetings.';
+    }
+  } else if (statusEl.classList.contains('is-error')) {
+    // Clear the "not configured" warning once a key exists.
+    setStatus('Waiting for a meeting…', 'is-waiting');
+  }
+};
+
+// Load the saved settings once on startup to seed lastSavedRecallKey and the
+// configured-state UI, without opening the settings view.
+const refreshConfiguredState = async () => {
+  const res = await window.recall?.getSettings();
+  lastSavedRecallKey = res?.settings?.RECALL_API_KEY || '';
+  updateConfiguredState(lastSavedRecallKey);
 };
 
 // ---- Huddle (manual recording) ----
@@ -562,6 +607,7 @@ const showEditor = (id) => {
   }
   currentId = id;
 
+  settingsViewEl.hidden = true;
   emptyStateEl.hidden = true;
   noteEl.hidden = false;
 
@@ -624,10 +670,89 @@ const showEditor = (id) => {
 
 const showEmpty = () => {
   currentId = null;
+  settingsViewEl.hidden = true;
   noteEl.hidden = true;
   emptyStateEl.hidden = false;
   renderMeetingList();
 };
+
+// ---- Settings view (the in-app replacement for .env) ----
+
+// Show the settings pane in place of the note/empty-state, populated from the
+// saved settings. Done/Save returns to the prior note (or empty state).
+const showSettings = async () => {
+  noteEl.hidden = true;
+  emptyStateEl.hidden = true;
+  settingsViewEl.hidden = false;
+  settingsStatusEl.textContent = '';
+  settingsStatusEl.classList.remove('is-ok', 'is-error');
+
+  const res = await window.recall?.getSettings();
+  const settings = res?.settings || {};
+  for (const [key, input] of Object.entries(SETTINGS_FIELDS)) {
+    if (input) input.value = settings[key] || '';
+  }
+};
+
+// Leave settings: reopen the current note, else the newest, else empty state.
+const closeSettings = () => {
+  settingsViewEl.hidden = true;
+  if (currentId && findMeeting(currentId)) {
+    showEditor(currentId);
+  } else {
+    const newest = sortedMeetings()[0];
+    if (newest) showEditor(newest.id);
+    else showEmpty();
+  }
+};
+
+settingsBtn.addEventListener('click', () => {
+  showSettings();
+});
+
+settingsDoneBtn.addEventListener('click', () => {
+  closeSettings();
+});
+
+settingsSaveBtn.addEventListener('click', async () => {
+  if (!window.recall?.saveSettings) return;
+
+  // Collect a patch of every field (trimmed). Empty strings are saved too, so a
+  // user can clear a key.
+  const patch = {};
+  for (const [key, input] of Object.entries(SETTINGS_FIELDS)) {
+    if (input) patch[key] = input.value.trim();
+  }
+  const recallKeyChanged = patch.RECALL_API_KEY !== (lastSavedRecallKey || '');
+
+  settingsSaveBtn.disabled = true;
+  settingsStatusEl.classList.remove('is-ok', 'is-error');
+  settingsStatusEl.textContent = 'Saving…';
+
+  const res = await window.recall.saveSettings(patch);
+  settingsSaveBtn.disabled = false;
+
+  if (!res?.ok) {
+    settingsStatusEl.classList.add('is-error');
+    settingsStatusEl.textContent = `Couldn't save — ${res?.error || 'unknown error'}`;
+    return;
+  }
+
+  lastSavedRecallKey = patch.RECALL_API_KEY;
+  updateConfiguredState(patch.RECALL_API_KEY);
+  settingsStatusEl.classList.add('is-ok');
+
+  // The Recall key is a frozen constant in the backend — a change needs a
+  // restart to take effect. Other keys (AI/Slack/GetOverview) apply live.
+  if (recallKeyChanged && patch.RECALL_API_KEY) {
+    settingsStatusEl.textContent = 'Saved. Restart the app to start recording.';
+    if (window.recall?.restartApp && confirm('Recall API key saved. Restart now to apply it?')) {
+      window.recall.restartApp();
+    }
+  } else {
+    settingsStatusEl.textContent = 'Saved.';
+  }
+});
 
 // ---- Auto-save (debounced) ----
 
@@ -1075,11 +1200,19 @@ window.addEventListener('DOMContentLoaded', () => {
   loadTrash();
   loadSlackTargets();
   loadGetOverviewProjects();
+  refreshConfiguredState();
 });
 
 // ---- Live events from main ----
 
 window.recall?.onStatus((payload) => {
+  // With no Recall key configured, keep the "not configured" nudge rather than
+  // letting the idle "Waiting for a meeting…" status mask it. Real recording
+  // states (a meeting can't be detected without a key) still come through.
+  if (!lastSavedRecallKey && payload.type === 'permissions-granted') {
+    updateConfiguredState('');
+    return;
+  }
   const state = STATUS_STATES[payload.type] || { text: payload.type, cls: 'is-waiting' };
   const text = payload.type === 'error' ? `${state.text}: ${payload.message}` : state.text;
   setStatus(text, state.cls);

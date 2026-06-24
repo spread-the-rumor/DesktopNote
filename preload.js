@@ -38,4 +38,10 @@ contextBridge.exposeInMainWorld('recall', {
   // Each returns { ok: true } | { ok: false, error }.
   startHuddle: () => ipcRenderer.invoke('start-huddle'),
   stopHuddle: () => ipcRenderer.invoke('stop-huddle'),
+  // Settings — the in-app replacement for .env. get returns { ok, settings };
+  // save persists the keys and returns { ok, settings }. restart relaunches the
+  // app so a changed Recall API key takes effect.
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  saveSettings: (payload) => ipcRenderer.invoke('save-settings', payload),
+  restartApp: () => ipcRenderer.invoke('restart-app'),
 });

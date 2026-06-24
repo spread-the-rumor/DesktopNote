@@ -1073,3 +1073,122 @@ body {
   color: var(--text-soft, var(--gray));
   min-height: 1em;
 }
+
+/* ---- Settings (gear) button in the sidebar ---- */
+.settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.settings-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ---- Settings view (replaces the editor pane) ---- */
+.settings {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem 2.2rem;
+  max-width: 640px;
+}
+
+.settings-head {
+  margin-bottom: 1.5rem;
+}
+
+.settings-title {
+  margin: 0 0 0.3rem;
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
+}
+
+.settings-sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.3rem;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.settings-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-required {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+}
+
+.settings-input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.settings-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.settings-help {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-top: 0.4rem;
+}
+
+.settings-status {
+  font-size: 0.85rem;
+  color: var(--muted);
+  min-height: 1em;
+}
+
+.settings-status.is-ok {
+  color: var(--green);
+}
+
+.settings-status.is-error {
+  color: var(--red);
+}

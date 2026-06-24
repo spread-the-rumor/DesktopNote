@@ -3,8 +3,14 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 const RecallAiSdk = require('@recallai/desktop-sdk');
 const { updateElectronApp } = require('update-electron-app');
-const backend = require('./server');
 const store = require('./store');
+const settingsStore = require('./settingsStore');
+
+// The backend (server.js) reads its API keys into frozen constants at require()
+// time, so it must NOT be required until after we've loaded the user's saved
+// settings into process.env (see app.whenReady below). Hence: lazy, not a
+// top-level require. Assigned once, then used as before via backend.*.
+let backend = null;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -105,6 +111,22 @@ const createWindow = () => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.whenReady().then(async () => {
+  const userData = app.getPath('userData');
+
+  // Load the user's saved API keys (from the in-app Settings view) and layer
+  // them onto process.env BEFORE requiring server.js — the backend freezes its
+  // keys into constants at require() time, so this ordering is what makes the
+  // packaged app (which has no .env) actually able to reach Recall once a key
+  // has been entered. Done first so nothing else races it.
+  settingsStore.init(userData);
+  const settings = await settingsStore.loadSettings();
+  for (const [key, value] of Object.entries(settings)) {
+    if (value) process.env[key] = value;
+  }
+
+  // Now safe to require the backend: it reads the env we just populated.
+  backend = require('./server');
+
   // Start the local backend that bridges the app to the Recall.ai API.
   // start() resolves to null on a port clash (it never throws), so a stale
   // process holding the port no longer crashes the app.
@@ -114,7 +136,7 @@ app.whenReady().then(async () => {
   }
 
   // Persist meeting history under Electron's per-user userData dir.
-  store.init(app.getPath('userData'));
+  store.init(userData);
 
   // When a recording finishes processing, persist it to the local history
   // store first, then forward the *saved meeting* (not the raw payload) so the
@@ -167,6 +189,38 @@ app.whenReady().then(async () => {
       console.error('delete-meeting-permanent error:', err);
       return { ok: false, error: String(err) };
     }
+  });
+
+  // Settings IPC: the in-app replacement for .env. get-settings returns the
+  // saved keys for the Settings view; save-settings persists them and layers
+  // them onto process.env so call-time readers (summarize/chat/extract) pick
+  // them up live. The Recall/Slack/GetOverview frozen constants in server.js do
+  // NOT update mid-session, so the renderer prompts a restart for those.
+  ipcMain.handle('get-settings', async () => {
+    try {
+      return { ok: true, settings: await settingsStore.loadSettings() };
+    } catch (err) {
+      console.error('get-settings error:', err);
+      return { ok: false, error: String(err) };
+    }
+  });
+  ipcMain.handle('save-settings', async (_event, patch) => {
+    try {
+      const settings = await settingsStore.saveSettings(patch || {});
+      for (const [key, value] of Object.entries(patch || {})) {
+        if (value) process.env[key] = value;
+      }
+      return { ok: true, settings };
+    } catch (err) {
+      console.error('save-settings error:', err);
+      return { ok: false, error: String(err) };
+    }
+  });
+  // Relaunch the app — used by the Settings "Restart now" affordance so a
+  // changed Recall key (a frozen constant in server.js) takes effect.
+  ipcMain.handle('restart-app', () => {
+    app.relaunch();
+    app.quit();
   });
 
   // Renderer → main → backend: post the current transcript to Slack on demand.
