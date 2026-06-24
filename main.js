@@ -513,6 +513,16 @@ app.whenReady().then(async () => {
   // arrives here, so we listen for updates too.
   RecallAiSdk.addEventListener('meeting-updated', (evt) => {
     console.log('Meeting updated:', evt.window?.url || '(no url yet)');
+    // Keep the pending detected window fresh: on Windows/Meet the usable window
+    // handle + URL often arrive here, AFTER meeting-detected. If the user hasn't
+    // started recording yet (detectedWindowId still set), record against THIS
+    // (current) id, not the early one — recording a stale window makes Recall
+    // fail to attach to the meeting and emit only "Host" speaker labels. Once
+    // recording starts, start-detected-recording clears detectedWindowId, so an
+    // in-progress recording is never disturbed by a later update.
+    if (detectedWindowId && evt.window?.id) {
+      detectedWindowId = evt.window.id;
+    }
     sendToRenderer('status', { type: 'meeting-updated', url: evt.window?.url });
   });
 
