@@ -64,6 +64,17 @@ module.exports = {
                 js: './preload.js',
               },
             },
+            // Granola-style "Meeting Detected" popup — a separate frameless,
+            // always-on-top window. Its own entry produces POPUP_WINDOW_WEBPACK_ENTRY
+            // and POPUP_WINDOW_PRELOAD_WEBPACK_ENTRY globals (mirrors main_window).
+            {
+              html: './popup.html',
+              js: './popup.js',
+              name: 'popup_window',
+              preload: {
+                js: './popupPreload.js',
+              },
+            },
           ],
         },
       },

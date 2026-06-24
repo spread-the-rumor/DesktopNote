@@ -1,4 +1,4 @@
-# Recall Desktop — Architecture & Replication Guide
+# Your Call AI — Architecture & Replication Guide
 
 A complete, step-by-step guide so any team member can rebuild and run this app from scratch.
 

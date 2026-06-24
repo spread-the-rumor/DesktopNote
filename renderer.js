@@ -14,6 +14,8 @@ const statusEl = document.getElementById('status');
 const statusTextEl = statusEl.querySelector('.pill-text');
 const huddleBtn = document.getElementById('huddle-btn');
 const huddleTextEl = huddleBtn.querySelector('.huddle-text');
+const recordBtn = document.getElementById('record-btn');
+const recordTextEl = recordBtn.querySelector('.record-text');
 const notesListEl = document.getElementById('notes-list');
 const searchInputEl = document.getElementById('search-input');
 const trashToggleEl = document.getElementById('trash-toggle');
@@ -91,6 +93,9 @@ let currentView = 'summary';
 let searchQuery = '';
 // Whether a manual "Huddle" recording is in progress.
 let isHuddling = false;
+// Whether a detected-meeting recording (via the in-app "Start Recording" button
+// or the popup) is in progress — drives the record button's Start/Stop toggle.
+let recordingActive = false;
 // Loaded GetOverview projects (global control, like the Slack dropdown), keyed
 // for the "Open in GetOverview" link lookup.
 let goProjects = [];
@@ -103,7 +108,8 @@ let lastSavedRecallKey = '';
 
 const STATUS_STATES = {
   'permissions-granted': { text: 'Waiting for a meeting…', cls: 'is-waiting' },
-  'meeting-detected': { text: 'Meeting detected — starting…', cls: 'is-recording' },
+  'meeting-detected': { text: 'Meeting detected — start recording?', cls: 'is-waiting' },
+  'meeting-dismissed': { text: 'Waiting for a meeting…', cls: 'is-waiting' },
   'recording-started': { text: 'Recording in progress', cls: 'is-recording' },
   'meeting-updated': { text: 'Recording in progress', cls: 'is-recording' },
   'recording-ended': { text: 'Processing transcript…', cls: 'is-waiting' },
@@ -187,6 +193,62 @@ huddleBtn.addEventListener('click', async () => {
   }
 
   huddleBtn.disabled = false;
+});
+
+// ---- Detected-meeting record button ----
+
+// Drive the dynamic record button. State:
+//  'hidden'    — no meeting detected; button not shown.
+//  'detected'  — a meeting was detected; show "Start Recording" (green).
+//  'recording' — recording in progress; show "Stop Recording" (red).
+const setRecordButton = (state) => {
+  if (state === 'hidden') {
+    recordingActive = false;
+    recordBtn.hidden = true;
+    recordBtn.classList.remove('is-recording');
+    recordBtn.disabled = false;
+    recordTextEl.textContent = 'Start Recording';
+    return;
+  }
+  recordBtn.hidden = false;
+  recordBtn.disabled = false;
+  if (state === 'recording') {
+    recordingActive = true;
+    recordBtn.classList.add('is-recording');
+    recordTextEl.textContent = 'Stop Recording';
+  } else {
+    recordingActive = false;
+    recordBtn.classList.remove('is-recording');
+    recordTextEl.textContent = 'Start Recording';
+  }
+};
+
+recordBtn.addEventListener('click', async () => {
+  if (!window.recall?.startDetectedRecording) {
+    return;
+  }
+  recordBtn.disabled = true;
+
+  if (!recordingActive) {
+    // Start recording the detected meeting. The status events then drive the
+    // pill and flip the button to "Stop Recording" via onStatus.
+    recordTextEl.textContent = 'Starting…';
+    const res = await window.recall.startDetectedRecording();
+    if (!res?.ok) {
+      setRecordButton('detected');
+      setStatus(`Start failed — ${res?.error || 'unknown error'}`, 'is-error');
+    }
+  } else {
+    // Stop the in-progress recording. The pill advances on its own via the
+    // recording-ended → recording-complete events.
+    recordTextEl.textContent = 'Stopping…';
+    const res = await window.recall.stopRecording();
+    if (!res?.ok) {
+      setRecordButton('recording');
+      setStatus(`Stop failed — ${res?.error || 'unknown error'}`, 'is-error');
+    }
+  }
+  recordBtn.disabled = false;
 });
 
 // ---- Date formatting ----
@@ -1222,13 +1284,33 @@ window.recall?.onStatus((payload) => {
   const state = STATUS_STATES[payload.type] || { text: payload.type, cls: 'is-waiting' };
   const text = payload.type === 'error' ? `${state.text}: ${payload.message}` : state.text;
   setStatus(text, state.cls);
+
+  // Drive the dynamic Start/Stop Recording button from the same status stream.
+  switch (payload.type) {
+    case 'meeting-detected':
+      setRecordButton('detected');
+      break;
+    case 'recording-started':
+    case 'meeting-updated':
+      setRecordButton('recording');
+      break;
+    case 'recording-ended':
+    case 'meeting-closed':
+    case 'meeting-dismissed':
+    case 'permissions-granted':
+      setRecordButton('hidden');
+      break;
+    default:
+      break;
+  }
 });
 
 // A completed recording arrives as a fully-formed (already persisted) meeting.
 window.recall?.onRecordingComplete((meeting) => {
   setStatus('Transcript ready', 'is-ready');
-  // A finished recording (auto or manual) means no huddle is in progress.
+  // A finished recording (detected or manual) means nothing is in progress.
   setHuddleState(false);
+  setRecordButton('hidden');
   const idx = meetings.findIndex((m) => m.id === meeting.id);
   if (idx === -1) {
     meetings.push(meeting);

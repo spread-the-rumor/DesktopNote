@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Meeting Detected</title>
+    <style>
+      :root {
+        --card-bg: #20232a;
+        --card-border: rgba(255, 255, 255, 0.08);
+        --text: #f4f5f7;
+        --muted: #9aa0aa;
+        --accent: #c4f042;
+        --accent-text: #1a1c20;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: default;
+      }
+
+      .card {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 8px;
+        padding: 0.7rem 0.8rem;
+        height: calc(100% - 16px);
+        border-radius: 14px;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        animation: slide-in 0.22s ease-out;
+      }
+
+      @keyframes slide-in {
+        from {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .info {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+      }
+
+      .title {
+        color: var(--text);
+        font-size: 0.92rem;
+        font-weight: 650;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .start-btn {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem 0.85rem;
+        border: none;
+        border-radius: 10px;
+        background: var(--accent);
+        color: var(--accent-text);
+        font-family: inherit;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: filter 0.15s ease, opacity 0.15s ease;
+      }
+      .start-btn:hover {
+        filter: brightness(1.05);
+      }
+      .start-btn:active {
+        filter: brightness(0.95);
+      }
+      .start-btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      .rec-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #e03131;
+        flex: none;
+      }
+
+      .dismiss-btn {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 1.05rem;
+        line-height: 1;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .dismiss-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="info">
+        <span class="title">Meeting Detected</span>
+        <span id="subtitle" class="subtitle">A meeting is in progress</span>
+      </div>
+      <button id="start-btn" class="start-btn" type="button">
+        <span class="rec-dot"></span>
+        <span class="start-text">Start Recording</span>
+      </button>
+      <button id="dismiss-btn" class="dismiss-btn" type="button" title="Dismiss" aria-label="Dismiss">
+        &times;
+      </button>
+    </div>
+  </body>
+</html>

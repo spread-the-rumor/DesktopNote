@@ -38,6 +38,12 @@ contextBridge.exposeInMainWorld('recall', {
   // Each returns { ok: true } | { ok: false, error }.
   startHuddle: () => ipcRenderer.invoke('start-huddle'),
   stopHuddle: () => ipcRenderer.invoke('stop-huddle'),
+  // Detected-meeting recording — the user opts in (the in-app "Start Recording"
+  // button, mirroring the popup). startDetected records the detected meeting;
+  // stopRecording stops whichever recording is active. Each returns
+  // { ok: true } | { ok: false, error }.
+  startDetectedRecording: () => ipcRenderer.invoke('start-detected-recording'),
+  stopRecording: () => ipcRenderer.invoke('stop-recording'),
   // Settings — the in-app replacement for .env. get returns { ok, settings };
   // save persists the keys and returns { ok, settings }. restart relaunches the
   // app so a changed Recall API key takes effect.

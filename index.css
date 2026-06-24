@@ -405,6 +405,56 @@ body {
   flex-wrap: wrap;
 }
 
+/* ---- Detected-meeting record button (shown only when a meeting is detected) ---- */
+.record-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  align-self: flex-start;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--green);
+  background: var(--green);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.record-btn:hover:not(:disabled) {
+  background: #2b8a3e;
+  border-color: #2b8a3e;
+}
+
+.record-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.record-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  flex: none;
+}
+
+.record-btn.is-recording {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+.record-btn.is-recording:hover:not(:disabled) {
+  background: #c92a2a;
+  border-color: #c92a2a;
+}
+
+.record-btn.is-recording .record-dot {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
 /* ---- Huddle (manual record) button ---- */
 .huddle-btn {
   display: inline-flex;

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const RecallAiSdk = require('@recallai/desktop-sdk');
@@ -54,6 +54,16 @@ let isQuitting = false;
 // Recall SDK identifies a desktop-audio session the same way it does a detected
 // meeting window — by a windowId — so we hold onto it to stop the recording.
 let huddleWindowId = null;
+// windowId of a meeting that has been DETECTED but not yet started by the user.
+// We no longer auto-record on detection: instead we stash the id here, show the
+// "Meeting Detected" popup, and wait for the user to start (start-detected-recording)
+// or dismiss (dismiss-detected-meeting). Cleared on start/dismiss/close.
+let detectedWindowId = null;
+// windowId of whatever recording is currently active (a detected meeting OR a
+// huddle), so a single stop path can stop either. Set at start, cleared on stop.
+let activeWindowId = null;
+// The frameless "Meeting Detected" popup BrowserWindow (null when not shown).
+let popupWindow = null;
 // desktop_sdk_upload ids of recordings that have started but not yet been
 // processed. We have no public webhook anymore: instead, on `recording-ended`
 // we drain this list and poll Recall for each upload's finished media (see
@@ -67,6 +77,85 @@ const sendToRenderer = (channel, payload) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel, payload);
   }
+};
+
+// Shared start path: fetch an upload token from the backend and start recording
+// the given window. Used by both the user-initiated detected-meeting start and
+// the manual Huddle. The upload id is tracked so `recording-ended` can poll
+// Recall for the finished media (see pendingUploadIds / processCompletedUpload).
+const startRecordingForWindow = async (windowId) => {
+  const res = await fetch(`http://localhost:${BACKEND_PORT}/api/create_sdk_recording`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`create_sdk_recording returned ${res.status}`);
+  }
+  const payload = await res.json();
+  await RecallAiSdk.startRecording({
+    windowId,
+    uploadToken: payload.upload_token,
+  });
+  if (payload.id) {
+    pendingUploadIds.push(payload.id);
+  }
+};
+
+// Tear down the "Meeting Detected" popup if it's open.
+const closeDetectionPopup = () => {
+  if (popupWindow && !popupWindow.isDestroyed()) {
+    popupWindow.close();
+  }
+  popupWindow = null;
+};
+
+// Show the Granola-style "Meeting Detected" popup: a small frameless,
+// always-on-top card pinned to the top-right of the primary display. It stays
+// up until the user starts recording or dismisses it (or the meeting closes).
+// `meetingInfo` carries display text (e.g. the source app/browser name).
+const createDetectionPopup = (meetingInfo = {}) => {
+  closeDetectionPopup();
+
+  const POPUP_W = 380;
+  const POPUP_H = 92;
+  const MARGIN = 16;
+  const workArea = screen.getPrimaryDisplay().workArea;
+
+  popupWindow = new BrowserWindow({
+    width: POPUP_W,
+    height: POPUP_H,
+    x: workArea.x + workArea.width - POPUP_W - MARGIN,
+    y: workArea.y + MARGIN,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    show: false,
+    webPreferences: {
+      preload: POPUP_WINDOW_PRELOAD_WEBPACK_ENTRY,
+    },
+  });
+
+  // Float above full-screen apps (e.g. a maximized meeting window).
+  popupWindow.setAlwaysOnTop(true, 'screen-saver');
+  popupWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  popupWindow.loadURL(POPUP_WINDOW_WEBPACK_ENTRY);
+
+  // Send the meeting info once the popup's renderer is ready to receive it.
+  popupWindow.webContents.on('did-finish-load', () => {
+    if (popupWindow && !popupWindow.isDestroyed()) {
+      popupWindow.webContents.send('meeting-info', meetingInfo);
+      popupWindow.showInactive();
+    }
+  });
+
+  popupWindow.on('closed', () => {
+    popupWindow = null;
+  });
 };
 
 // Best-effort meeting timestamp: the first word's absolute time, else now.
@@ -271,25 +360,9 @@ app.whenReady().then(async () => {
     try {
       // Desktop-audio session windowId (not tied to any meeting window).
       const windowId = await RecallAiSdk.prepareDesktopAudioRecording();
-
-      const res = await fetch(`http://localhost:${BACKEND_PORT}/api/create_sdk_recording`, {
-        method: 'POST',
-      });
-      if (!res.ok) {
-        throw new Error(`create_sdk_recording returned ${res.status}`);
-      }
-      const payload = await res.json();
-
-      await RecallAiSdk.startRecording({
-        windowId,
-        uploadToken: payload.upload_token,
-      });
-      // Remember the upload id so `recording-ended` can poll Recall for the
-      // finished media (replaces the old inbound webhook).
-      if (payload.id) {
-        pendingUploadIds.push(payload.id);
-      }
+      await startRecordingForWindow(windowId);
       huddleWindowId = windowId;
+      activeWindowId = windowId;
       sendToRenderer('status', { type: 'recording-started' });
       return { ok: true };
     } catch (err) {
@@ -299,19 +372,56 @@ app.whenReady().then(async () => {
     }
   });
 
-  ipcMain.handle('stop-huddle', async () => {
-    if (!huddleWindowId) {
-      return { ok: false, error: 'No active huddle' };
+  // User-initiated start of a DETECTED meeting (the popup or the in-app
+  // "Start Recording" button). Reuses the same pipeline as the huddle; the only
+  // difference is the windowId comes from the detected meeting, not a desktop
+  // audio session. Closes the popup and clears the pending detected id on start.
+  ipcMain.handle('start-detected-recording', async () => {
+    if (!detectedWindowId) {
+      return { ok: false, error: 'No detected meeting to record' };
     }
+    const windowId = detectedWindowId;
     try {
-      await RecallAiSdk.stopRecording({ windowId: huddleWindowId });
-      huddleWindowId = null;
+      await startRecordingForWindow(windowId);
+      activeWindowId = windowId;
+      detectedWindowId = null;
+      closeDetectionPopup();
+      sendToRenderer('status', { type: 'recording-started' });
       return { ok: true };
     } catch (err) {
-      console.error('stop-huddle error:', err);
+      console.error('start-detected-recording error:', err);
       return { ok: false, error: String(err) };
     }
   });
+
+  // User dismissed the "Meeting Detected" popup without recording: drop the
+  // pending detected meeting and close the popup. No recording happens.
+  ipcMain.handle('dismiss-detected-meeting', async () => {
+    detectedWindowId = null;
+    closeDetectionPopup();
+    sendToRenderer('status', { type: 'meeting-dismissed' });
+    return { ok: true };
+  });
+
+  // Stop whichever recording is currently active (a detected meeting or a
+  // huddle). Both set activeWindowId at start, so one stop path covers both.
+  // stop-huddle is kept as an alias so the existing Huddle button wiring works.
+  const stopActiveRecording = async () => {
+    if (!activeWindowId) {
+      return { ok: false, error: 'No active recording' };
+    }
+    try {
+      await RecallAiSdk.stopRecording({ windowId: activeWindowId });
+      activeWindowId = null;
+      huddleWindowId = null;
+      return { ok: true };
+    } catch (err) {
+      console.error('stop-recording error:', err);
+      return { ok: false, error: String(err) };
+    }
+  };
+  ipcMain.handle('stop-recording', stopActiveRecording);
+  ipcMain.handle('stop-huddle', stopActiveRecording);
 
   // Save the transcript to a user-chosen location (.txt readable or .json raw).
   ipcMain.handle('save-transcript', async (_event, { recordingId, transcript }) => {
@@ -387,33 +497,16 @@ app.whenReady().then(async () => {
     sendToRenderer('status', { type: 'permissions-granted' });
   });
 
-  RecallAiSdk.addEventListener('meeting-detected', async (evt) => {
-    try {
-      console.log('Meeting detected, starting recording...');
-      sendToRenderer('status', { type: 'meeting-detected' });
-
-      const res = await fetch(`http://localhost:${BACKEND_PORT}/api/create_sdk_recording`, {
-        method: 'POST',
-      });
-      if (!res.ok) {
-        throw new Error(`create_sdk_recording returned ${res.status}`);
-      }
-      const payload = await res.json();
-
-      await RecallAiSdk.startRecording({
-        windowId: evt.window.id,
-        uploadToken: payload.upload_token,
-      });
-      // Remember the upload id so `recording-ended` can poll Recall for the
-      // finished media (replaces the old inbound webhook).
-      if (payload.id) {
-        pendingUploadIds.push(payload.id);
-      }
-      sendToRenderer('status', { type: 'recording-started' });
-    } catch (err) {
-      console.error('Failed to start recording:', err);
-      sendToRenderer('status', { type: 'error', message: String(err) });
-    }
+  RecallAiSdk.addEventListener('meeting-detected', (evt) => {
+    // We no longer auto-record. Stash the detected window so the user can opt in,
+    // notify the renderer (which shows the in-app "Start Recording" button), and
+    // pop up the Granola-style "Meeting Detected" card. Recording actually starts
+    // via the start-detected-recording IPC handler.
+    console.log('Meeting detected, awaiting user to start recording...');
+    detectedWindowId = evt.window.id;
+    const source = evt.window?.platform || evt.window?.title || '';
+    sendToRenderer('status', { type: 'meeting-detected' });
+    createDetectionPopup({ source });
   });
 
   // On Windows the meeting URL is often absent in `meeting-detected` and only
@@ -426,6 +519,10 @@ app.whenReady().then(async () => {
   RecallAiSdk.addEventListener('recording-ended', () => {
     console.log('Meeting finished, waiting for Recall to process...');
     sendToRenderer('status', { type: 'recording-ended' });
+    // The recording is over: clear active/detected state and any open popup.
+    activeWindowId = null;
+    detectedWindowId = null;
+    closeDetectionPopup();
 
     // No inbound webhook anymore: drain the upload ids started since the last
     // end and poll Recall for each one's finished media. processCompletedUpload
@@ -443,6 +540,12 @@ app.whenReady().then(async () => {
   RecallAiSdk.addEventListener('meeting-closed', (evt) => {
     console.log('Meeting closed');
     sendToRenderer('status', { type: 'meeting-closed' });
+    // If the meeting closed before the user started recording, drop the pending
+    // detected meeting and tear down the "Meeting Detected" popup.
+    if (detectedWindowId) {
+      detectedWindowId = null;
+      closeDetectionPopup();
+    }
   });
 
   RecallAiSdk.addEventListener('error', (evt) => {
