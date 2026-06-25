@@ -1,9 +1,13 @@
 name: Release
 
-# Build the Windows installer and publish it to GitHub Releases whenever a
-# version tag (e.g. v1.0.1) is pushed. The release is created as a draft
-# (see forge.config.js publishers config) — publish it in the GitHub UI to
-# make it go live and auto-update installed apps.
+# Build the platform installers and publish them to GitHub Releases whenever a
+# version tag (e.g. v1.0.1) is pushed. Two jobs run in parallel — a Windows
+# job (Squirrel installer) and a macOS job (Apple Silicon .zip) — and both
+# upload their assets to the SAME draft release keyed by the tag. The release
+# is created as a draft (see forge.config.js publishers config) — publish it
+# in the GitHub UI (or `gh release edit vX.Y.Z --draft=false`) to make it go
+# live. Windows auto-updates from it; macOS is currently a manual download
+# (unsigned — see CLAUDE.md "Distribution").
 on:
   push:
     tags:
@@ -21,12 +25,40 @@ jobs:
         with:
           node-version: 20
 
-      # `npm ci` re-downloads the Recall SDK's platform-specific native agent.
+      # `npm ci` re-downloads the Recall SDK's platform-specific native agent
+      # (agent-windows.exe on this runner).
       - run: npm ci
 
       # electron-forge publish builds with the Squirrel maker and uploads the
       # installer assets to GitHub Releases. GITHUB_TOKEN is provided
       # automatically by Actions — no manual PAT needed.
       - run: npm run publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-mac:
+    # macos-14 is an Apple Silicon (arm64) runner — matches the Recall SDK's
+    # Apple-Silicon-only macOS support, so the build is genuinely arm64.
+    runs-on: macos-14
+    permissions:
+      contents: write # required to append assets to the GitHub Release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # `npm ci` runs the SDK's postinstall, which detects darwin and downloads
+      # the macOS native agent (desktop_sdk_macos_exe) — no extra setup needed.
+      - run: npm ci
+
+      # `--arch=arm64` forces an unambiguously Apple-Silicon build, so the
+      # darwin maker-zip emits a ...-darwin-arm64-<version>.zip. The build is
+      # UNSIGNED (no Apple Developer cert yet) — fine for manual download, but
+      # macOS auto-update will not work until the app is signed + notarized
+      # (see CLAUDE.md "Distribution", Phase 2). Appends to the same draft
+      # release the Windows job creates (publisher-github groups by tag).
+      - run: npm run publish -- --arch=arm64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
