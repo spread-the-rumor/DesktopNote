@@ -32,6 +32,10 @@ if (app.isPackaged) {
 // so the backend must use a different port to avoid an EADDRINUSE clash that
 // would leave our API routes unregistered (and meeting-detected fetches 404ing).
 const BACKEND_PORT = 3100;
+// When set (injected at build time via webpack DefinePlugin + GitHub Actions
+// secret), the one HTTP call to create_sdk_recording goes to Vercel instead of
+// localhost, so API keys never need to be on the user's machine.
+const VERCEL_BACKEND_URL = process.env.VERCEL_BACKEND_URL || '';
 
 let mainWindow = null;
 let backendServer = null;
@@ -84,7 +88,8 @@ const sendToRenderer = (channel, payload) => {
 // the manual Huddle. The upload id is tracked so `recording-ended` can poll
 // Recall for the finished media (see pendingUploadIds / processCompletedUpload).
 const startRecordingForWindow = async (windowId) => {
-  const res = await fetch(`http://localhost:${BACKEND_PORT}/api/create_sdk_recording`, {
+  const apiBase = VERCEL_BACKEND_URL || `http://localhost:${BACKEND_PORT}`;
+  const res = await fetch(`${apiBase}/api/create_sdk_recording`, {
     method: 'POST',
   });
   if (!res.ok) {

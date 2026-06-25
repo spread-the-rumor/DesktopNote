@@ -1,3 +1,6 @@
+require('dotenv').config();
+const webpack = require('webpack');
+
 module.exports = {
   /**
    * This is the main entry point for your application, it's the first file
@@ -16,4 +19,12 @@ module.exports = {
   externals: {
     '@recallai/desktop-sdk': 'commonjs @recallai/desktop-sdk',
   },
+  plugins: [
+    // Bake VERCEL_BACKEND_URL into the packaged bundle at build time so the
+    // app calls Vercel for create_sdk_recording without needing a .env file.
+    // Falls back to empty string (→ localhost) when not set (local dev).
+    new webpack.DefinePlugin({
+      'process.env.VERCEL_BACKEND_URL': JSON.stringify(process.env.VERCEL_BACKEND_URL || ''),
+    }),
+  ],
 };
