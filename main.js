@@ -34,8 +34,14 @@ if (app.isPackaged) {
 const BACKEND_PORT = 3100;
 // When set (injected at build time via webpack DefinePlugin + GitHub Actions
 // secret), the one HTTP call to create_sdk_recording goes to Vercel instead of
-// localhost, so API keys never need to be on the user's machine.
+// localhost, AND the app fetches all its API keys from Vercel at launch (see
+// fetchVercelConfig), so a fresh install needs no manual key entry.
 const VERCEL_BACKEND_URL = process.env.VERCEL_BACKEND_URL || '';
+
+// The merged, in-effect config (Vercel defaults with user Settings layered on
+// top) — captured at startup so the renderer can reflect what's actually active
+// (e.g. whether a Recall key is available) without re-reading process.env.
+let effectiveConfig = {};
 
 let mainWindow = null;
 let backendServer = null;
@@ -80,6 +86,41 @@ const pendingUploadIds = [];
 const sendToRenderer = (channel, payload) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel, payload);
+  }
+};
+
+// Fetch the team's API keys from Vercel so the app works without any manual key
+// entry. Caches the result to userData so a later offline launch still has keys.
+// Returns the config object, the last cached config on a fetch failure, or null
+// if there's nothing to use (local dev with no VERCEL_BACKEND_URL, or no cache).
+const configCachePath = () => path.join(app.getPath('userData'), 'config-cache.json');
+
+const fetchVercelConfig = async () => {
+  // Local dev (no Vercel URL baked in): behave exactly as before — keys come
+  // from .env + Settings only, no fetch.
+  if (!VERCEL_BACKEND_URL) {
+    return null;
+  }
+  try {
+    const res = await fetch(`${VERCEL_BACKEND_URL}/api/config`);
+    if (!res.ok) {
+      throw new Error(`config request returned ${res.status}`);
+    }
+    const cfg = await res.json();
+    // Cache for offline launches. Best-effort — a write failure isn't fatal.
+    try {
+      await fs.writeFile(configCachePath(), JSON.stringify(cfg), 'utf8');
+    } catch (writeErr) {
+      console.warn('Could not cache Vercel config:', writeErr.message);
+    }
+    return cfg;
+  } catch (err) {
+    console.warn('Vercel config fetch failed, falling back to cache:', err.message);
+    try {
+      return JSON.parse(await fs.readFile(configCachePath(), 'utf8'));
+    } catch {
+      return null;
+    }
   }
 };
 
@@ -222,15 +263,32 @@ const createWindow = () => {
 app.whenReady().then(async () => {
   const userData = app.getPath('userData');
 
-  // Load the user's saved API keys (from the in-app Settings view) and layer
-  // them onto process.env BEFORE requiring server.js — the backend freezes its
-  // keys into constants at require() time, so this ordering is what makes the
-  // packaged app (which has no .env) actually able to reach Recall once a key
-  // has been entered. Done first so nothing else races it.
+  // Populate process.env with the app's API keys BEFORE requiring server.js —
+  // the backend freezes its keys into constants at require() time, so this
+  // ordering is what makes the packaged app (which has no .env) able to reach
+  // Recall/Slack/etc. Keys come from two sources, merged lowest → highest:
+  //   1. Vercel config (the team's central keys) — so a fresh install just works
+  //      with no manual entry. Fetched on every launch; cached for offline use.
+  //   2. The user's own Settings overrides — layered on top, so a locally
+  //      entered key always wins over the Vercel default.
+  // Done first so nothing else races it.
   settingsStore.init(userData);
-  const settings = await settingsStore.loadSettings();
-  for (const [key, value] of Object.entries(settings)) {
-    if (value) process.env[key] = value;
+  const [vercelConfig, userSettings] = await Promise.all([
+    fetchVercelConfig(),
+    settingsStore.loadSettings(),
+  ]);
+
+  // Merge: Vercel defaults first, then user overrides on top. Track the merged
+  // result in effectiveConfig so the renderer can reflect what's actually active.
+  effectiveConfig = {};
+  for (const source of [vercelConfig, userSettings]) {
+    if (!source) continue;
+    for (const [key, value] of Object.entries(source)) {
+      if (value) effectiveConfig[key] = value;
+    }
+  }
+  for (const [key, value] of Object.entries(effectiveConfig)) {
+    process.env[key] = value;
   }
 
   // Now safe to require the backend: it reads the env we just populated.
@@ -317,13 +375,23 @@ app.whenReady().then(async () => {
     try {
       const settings = await settingsStore.saveSettings(patch || {});
       for (const [key, value] of Object.entries(patch || {})) {
-        if (value) process.env[key] = value;
+        if (value) {
+          process.env[key] = value;
+          effectiveConfig[key] = value;
+        }
       }
       return { ok: true, settings };
     } catch (err) {
       console.error('save-settings error:', err);
       return { ok: false, error: String(err) };
     }
+  });
+  // The effective (in-effect) config: Vercel defaults with the user's Settings
+  // overrides layered on top. The renderer uses this — not the raw settings.json
+  // — to decide whether a Recall key is available, since the key now usually
+  // comes from Vercel rather than from anything the user typed.
+  ipcMain.handle('get-effective-config', () => {
+    return { ok: true, config: effectiveConfig };
   });
   // Relaunch the app — used by the Settings "Restart now" affordance so a
   // changed Recall key (a frozen constant in server.js) takes effect.

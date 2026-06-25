@@ -49,6 +49,10 @@ contextBridge.exposeInMainWorld('recall', {
   // app so a changed Recall API key takes effect.
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (payload) => ipcRenderer.invoke('save-settings', payload),
+  // The effective config (Vercel defaults + user overrides) — { ok, config }.
+  // Used to decide whether a Recall key is available, since keys now usually
+  // come from Vercel rather than from settings.json.
+  getEffectiveConfig: () => ipcRenderer.invoke('get-effective-config'),
   restartApp: () => ipcRenderer.invoke('restart-app'),
   // The running app version — shown in the sidebar.
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),

@@ -99,10 +99,13 @@ let recordingActive = false;
 // Loaded GetOverview projects (global control, like the Slack dropdown), keyed
 // for the "Open in GetOverview" link lookup.
 let goProjects = [];
-// The Recall API key as last loaded/saved — used to detect a change on save
-// (which requires a restart to take effect) and to drive the "not configured"
-// state. Loaded once on startup via refreshConfiguredState().
-let lastSavedRecallKey = '';
+// The user's own Recall API key OVERRIDE as last saved in Settings (may be
+// empty when the user relies on the Vercel-provided key). Used only to detect a
+// change on save, which requires a restart to take effect. Seeded on startup.
+let lastSavedRecallOverride = '';
+// Whether a Recall key is available from ANY source (Vercel default or a user
+// override) — drives the "not configured" nudge. Seeded via refreshConfiguredState().
+let recallKeyAvailable = false;
 
 // ---- Status pill ----
 
@@ -123,30 +126,35 @@ const setStatus = (text, cls) => {
   statusEl.classList.add(cls);
 };
 
-// Reflect whether a Recall API key is configured: with no key the app can't
-// record, so the status pill says so and the empty state nudges toward Settings.
-const updateConfiguredState = (recallKey) => {
-  const configured = Boolean(recallKey);
-  huddleBtn.disabled = !configured;
+// Reflect whether a Recall API key is available (from Vercel or a user override):
+// with no key the app can't record, so the status pill says so and the empty
+// state nudges toward Settings. Keys normally come from Vercel, so this only
+// fires when neither Vercel nor a user override supplied one.
+const updateConfiguredState = (available) => {
+  recallKeyAvailable = Boolean(available);
+  huddleBtn.disabled = !recallKeyAvailable;
   const emptySub = emptyStateEl.querySelector('.empty-sub');
-  if (!configured) {
-    setStatus('Add your Recall API key in Settings', 'is-error');
+  if (!recallKeyAvailable) {
+    setStatus('No Recall API key available — check your connection or add one in Settings', 'is-error');
     if (emptySub) {
       emptySub.textContent =
-        'Add your Recall API key in Settings (gear icon, top-left) to detect and record meetings.';
+        'No Recall API key is available. The app normally gets keys automatically — check your connection, or add your own in Settings (gear icon, top-left).';
     }
   } else if (statusEl.classList.contains('is-error')) {
-    // Clear the "not configured" warning once a key exists.
+    // Clear the "not configured" warning once a key is available.
     setStatus('Waiting for a meeting…', 'is-waiting');
   }
 };
 
-// Load the saved settings once on startup to seed lastSavedRecallKey and the
-// configured-state UI, without opening the settings view.
+// On startup, seed the configured-state UI from the EFFECTIVE config (Vercel
+// defaults + user overrides), not raw settings.json — the Recall key now usually
+// comes from Vercel. Also seed lastSavedRecallOverride from the user's settings
+// so save-time change detection (for the restart prompt) works.
 const refreshConfiguredState = async () => {
-  const res = await window.recall?.getSettings();
-  lastSavedRecallKey = res?.settings?.RECALL_API_KEY || '';
-  updateConfiguredState(lastSavedRecallKey);
+  const eff = await window.recall?.getEffectiveConfig();
+  updateConfiguredState(eff?.config?.RECALL_API_KEY || '');
+  const saved = await window.recall?.getSettings();
+  lastSavedRecallOverride = saved?.settings?.RECALL_API_KEY || '';
 };
 
 // ---- Huddle (manual recording) ----
@@ -785,7 +793,7 @@ settingsSaveBtn.addEventListener('click', async () => {
   for (const [key, input] of Object.entries(SETTINGS_FIELDS)) {
     if (input) patch[key] = input.value.trim();
   }
-  const recallKeyChanged = patch.RECALL_API_KEY !== (lastSavedRecallKey || '');
+  const recallOverrideChanged = patch.RECALL_API_KEY !== (lastSavedRecallOverride || '');
 
   settingsSaveBtn.disabled = true;
   settingsStatusEl.classList.remove('is-ok', 'is-error');
@@ -800,15 +808,18 @@ settingsSaveBtn.addEventListener('click', async () => {
     return;
   }
 
-  lastSavedRecallKey = patch.RECALL_API_KEY;
-  updateConfiguredState(patch.RECALL_API_KEY);
+  lastSavedRecallOverride = patch.RECALL_API_KEY;
+  // Recompute the configured state from the effective config: a blank override
+  // doesn't mean "no key" — Vercel may still supply one. So re-read effective.
+  const eff = await window.recall?.getEffectiveConfig();
+  updateConfiguredState(eff?.config?.RECALL_API_KEY || '');
   settingsStatusEl.classList.add('is-ok');
 
-  // The Recall key is a frozen constant in the backend — a change needs a
-  // restart to take effect. Other keys (AI/Slack/GetOverview) apply live.
-  if (recallKeyChanged && patch.RECALL_API_KEY) {
-    settingsStatusEl.textContent = 'Saved. Restart the app to start recording.';
-    if (window.recall?.restartApp && confirm('Recall API key saved. Restart now to apply it?')) {
+  // The Recall key is a frozen constant in the backend — changing the override
+  // needs a restart to take effect. Other keys (AI/Slack/GetOverview) apply live.
+  if (recallOverrideChanged) {
+    settingsStatusEl.textContent = 'Saved. Restart the app for the Recall key change to take effect.';
+    if (window.recall?.restartApp && confirm('Recall API key changed. Restart now to apply it?')) {
       window.recall.restartApp();
     }
   } else {
@@ -1274,10 +1285,10 @@ window.addEventListener('DOMContentLoaded', () => {
 // ---- Live events from main ----
 
 window.recall?.onStatus((payload) => {
-  // With no Recall key configured, keep the "not configured" nudge rather than
+  // With no Recall key available, keep the "not configured" nudge rather than
   // letting the idle "Waiting for a meeting…" status mask it. Real recording
   // states (a meeting can't be detected without a key) still come through.
-  if (!lastSavedRecallKey && payload.type === 'permissions-granted') {
+  if (!recallKeyAvailable && payload.type === 'permissions-granted') {
     updateConfiguredState('');
     return;
   }

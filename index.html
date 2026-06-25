@@ -218,17 +218,15 @@
           <header class="settings-head">
             <h2 class="settings-title">Settings</h2>
             <p class="settings-sub">
-              Your API keys are stored only on this computer and never leave it.
+              API keys are managed centrally — leave a field blank to use the team default. Enter your own to override it on this computer.
             </p>
           </header>
 
           <div class="settings-form">
             <div class="settings-field">
-              <label class="settings-label" for="set-recall-key">
-                Recall API key <span class="settings-required">required</span>
-              </label>
-              <input id="set-recall-key" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="Your Recall.ai API key" />
-              <p class="settings-help">Required to detect and record meetings. From your Recall.ai dashboard.</p>
+              <label class="settings-label" for="set-recall-key">Recall API key</label>
+              <input id="set-recall-key" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="Using the team default — leave blank or override" />
+              <p class="settings-help">Detects and records meetings. Leave blank to use the team default; enter your own from your Recall.ai dashboard to override.</p>
             </div>
 
             <div class="settings-field">
@@ -239,26 +237,26 @@
 
             <div class="settings-field">
               <label class="settings-label" for="set-requesty-key">AI summary key</label>
-              <input id="set-requesty-key" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="requesty.ai API key" />
-              <p class="settings-help">Optional. Powers AI summaries, chat, and action-item extraction. Without it, those show an "unavailable" message.</p>
+              <input id="set-requesty-key" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="Using the team default — leave blank or override" />
+              <p class="settings-help">Powers AI summaries, chat, and action-item extraction. Leave blank to use the team default; enter your own requesty.ai key to override.</p>
             </div>
 
             <div class="settings-field">
               <label class="settings-label" for="set-slack-token">Slack bot token</label>
-              <input id="set-slack-token" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="xoxb-…" />
-              <p class="settings-help">Optional. Enables "Send to Slack". The Bot User OAuth Token from your Slack app.</p>
+              <input id="set-slack-token" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="Using the team default — leave blank or override" />
+              <p class="settings-help">Enables "Send to Slack". Leave blank to use the team default; enter your own Bot User OAuth Token (xoxb-…) to override.</p>
             </div>
 
             <div class="settings-field">
               <label class="settings-label" for="set-go-url">GetOverview base URL</label>
-              <input id="set-go-url" class="settings-input" type="text" autocomplete="off" spellcheck="false" placeholder="https://…" />
-              <p class="settings-help">Optional. Base URL of your GetOverview instance.</p>
+              <input id="set-go-url" class="settings-input" type="text" autocomplete="off" spellcheck="false" placeholder="Using the team default — leave blank or override" />
+              <p class="settings-help">Leave blank to use the team default; enter your own GetOverview base URL to override.</p>
             </div>
 
             <div class="settings-field">
               <label class="settings-label" for="set-go-token">GetOverview access token</label>
-              <input id="set-go-token" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="go_live_…" />
-              <p class="settings-help">Optional. Personal Access Token for GetOverview.</p>
+              <input id="set-go-token" class="settings-input" type="password" autocomplete="off" spellcheck="false" placeholder="Using the team default — leave blank or override" />
+              <p class="settings-help">Leave blank to use the team default; enter your own Personal Access Token (go_live_…) to override.</p>
             </div>
 
             <div class="settings-actions">

@@ -96,3 +96,5 @@ ngrok.exe
 
 # Claude Code local settings (machine-specific)
 .claude/
+.vercel
+.env*

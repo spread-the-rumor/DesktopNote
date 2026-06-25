@@ -85,6 +85,31 @@ app.post('/api/create_sdk_recording', async (req, res) => {
   }
 });
 
+// Hand the app its API keys at launch, so a fresh install needs no manual key
+// entry — the app fetches these from Vercel (where the team manages them as env
+// vars) and layers them onto its own process.env before using the in-process
+// pipeline (see main.js fetchVercelConfig). The user can still override any of
+// these locally in Settings; those overrides win (main.js merges them on top).
+//
+// Returns every key the app reads, sourced from THIS process's env (on Vercel,
+// the dashboard env vars; locally via `node server.js`, the .env). The Recall
+// and Slack/GetOverview values come from the frozen consts read at module top;
+// the AI key is read here (live) with the same fallback the AI modules use.
+//
+// NOTE: this endpoint returns the team's keys to anyone who can reach the URL.
+// That matches the internal-tool bar (obscure URL); see the plan's "Optional
+// hardening" for adding a shared bearer check later.
+app.get('/api/config', (_req, res) => {
+  res.json({
+    RECALL_API_KEY: RECALL_API_KEY || '',
+    RECALL_API_URL,
+    REQUESTY_API_KEY: process.env.REQUESTY_API_KEY || process.env.RECALLAI_REQUEST_KEY || '',
+    Bot_User_OAuth_Token: SLACK_BOT_TOKEN || '',
+    GetOverview_BASE_URL: GETOVERVIEW_BASE_URL || '',
+    GetOverview_Access_Token: GETOVERVIEW_TOKEN || '',
+  });
+});
+
 // Tracks recordings already processed (keyed by the resolved Recall recording
 // id), so a re-triggered poll for the same recording is ignored.
 const handledRecordings = new Set();
