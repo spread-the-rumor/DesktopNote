@@ -3,6 +3,12 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
 module.exports = {
   packagerConfig: {
+    // App icon. Forge appends the per-platform extension (.ico on Windows,
+    // .icns on macOS — macOS deferred until signing lands).
+    icon: 'assets/icon',
+    // Ship the runtime icon files into resources/ so main.js can load them for
+    // the BrowserWindow/taskbar icon (process.resourcesPath/assets/...).
+    extraResource: ['assets/icon.png', 'assets/icon.ico'],
     // Unpack the Recall SDK from the asar archive: its native agent binary
     // and DLLs must exist as real files on disk to be spawned/loaded.
     asar: {
@@ -13,7 +19,9 @@ module.exports = {
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
-      config: {},
+      config: {
+        setupIcon: 'assets/icon.ico',
+      },
     },
     {
       name: '@electron-forge/maker-zip',

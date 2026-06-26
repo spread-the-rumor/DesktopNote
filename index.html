@@ -6,12 +6,19 @@
     <title>Your Call AI</title>
   </head>
   <body>
+    <!-- Startup loader: covers the brief blank paint, fades out once the
+         renderer has loaded history (renderer.js adds .is-hidden). -->
+    <div id="loader" class="loader">
+      <img id="loader-logo" class="loader-logo" alt="" />
+      <span class="loader-name">Your Call AI</span>
+      <span class="loader-spinner"></span>
+    </div>
     <div class="app">
       <!-- Sidebar: brand, live status, and meeting history list -->
       <aside class="sidebar">
         <div class="sidebar-head">
           <div class="brand">
-            <span class="brand-mark">●</span>
+            <img id="brand-logo" class="brand-logo" alt="" />
             <span class="brand-name">Your Call AI</span>
             <span id="app-version" class="app-version"></span>
           </div>

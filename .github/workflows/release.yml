@@ -54,6 +54,23 @@ jobs:
       # the macOS native agent (desktop_sdk_macos_exe) — no extra setup needed.
       - run: npm ci
 
+      # Build the macOS .icns from assets/icon.png using the OS-native sips +
+      # iconutil (no dependency, no committed binary). Forge's
+      # packagerConfig.icon:'assets/icon' auto-picks assets/icon.icns when present.
+      - name: Generate macOS icon (.icns)
+        run: |
+          set -e
+          ICONSET=assets/icon.iconset
+          mkdir -p "$ICONSET"
+          for size in 16 32 64 128 256 512; do
+            sips -z $size $size assets/icon.png --out "$ICONSET/icon_${size}x${size}.png"
+            dbl=$((size * 2))
+            sips -z $dbl $dbl assets/icon.png --out "$ICONSET/icon_${size}x${size}@2x.png"
+          done
+          iconutil -c icns "$ICONSET" -o assets/icon.icns
+          rm -rf "$ICONSET"
+          ls -la assets/icon.icns
+
       # `--arch=arm64` forces an unambiguously Apple-Silicon build, so the
       # darwin maker-zip emits a ...-darwin-arm64-<version>.zip. The build is
       # UNSIGNED (no Apple Developer cert yet) — fine for manual download, but

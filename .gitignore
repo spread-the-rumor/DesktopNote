@@ -91,6 +91,10 @@ typings/
 # Electron-Forge
 out/
 
+# macOS icon is generated in CI (sips + iconutil) from assets/icon.png
+assets/icon.icns
+assets/icon.iconset/
+
 # Local tunneling binary (install separately)
 ngrok.exe
 

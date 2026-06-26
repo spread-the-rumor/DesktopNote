@@ -17,6 +17,15 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+// App/window/taskbar icon. Shipped via forge `extraResource`, which copies by
+// basename into resources/ (→ process.resourcesPath/icon.png) when packaged; in
+// dev it lives at assets/ under the project root. Used as the BrowserWindow icon
+// for the main + popup windows.
+const iconPath = () =>
+  app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(app.getAppPath(), 'assets', 'icon.png');
+
 // Auto-update from GitHub Releases via the free update.electron.org feed.
 // Only runs in packaged builds — in dev (`npm start`) there is no release feed
 // to hit. notifyUser:true shows the built-in download-then-restart prompt.
@@ -180,6 +189,7 @@ const createDetectionPopup = (meetingInfo = {}) => {
     fullscreenable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
+    icon: iconPath(),
     show: false,
     webPreferences: {
       preload: POPUP_WINDOW_PRELOAD_WEBPACK_ENTRY,
@@ -247,6 +257,7 @@ const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
+    icon: iconPath(),
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
     },

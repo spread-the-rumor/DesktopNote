@@ -6,12 +6,12 @@
     <title>Meeting Detected</title>
     <style>
       :root {
-        --card-bg: #20232a;
-        --card-border: rgba(255, 255, 255, 0.08);
-        --text: #f4f5f7;
-        --muted: #9aa0aa;
-        --accent: #c4f042;
-        --accent-text: #1a1c20;
+        --card-bg: rgba(28, 28, 28, 0.72);
+        --card-border: rgba(253, 228, 195, 0.16);
+        --text: #f6f6f6;
+        --muted: rgba(246, 246, 246, 0.55);
+        --accent: #fde4c3;
+        --accent-text: #1c1c1c;
       }
 
       * {
@@ -39,9 +39,18 @@
         height: calc(100% - 16px);
         border-radius: 14px;
         background: var(--card-bg);
+        backdrop-filter: blur(18px) saturate(120%);
+        -webkit-backdrop-filter: blur(18px) saturate(120%);
         border: 1px solid var(--card-border);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
         animation: slide-in 0.22s ease-out;
+      }
+
+      .popup-logo {
+        flex: none;
+        width: 36px;
+        height: 36px;
+        border-radius: 9px;
       }
 
       @keyframes slide-in {
@@ -142,6 +151,7 @@
   </head>
   <body>
     <div class="card">
+      <img id="popup-logo" class="popup-logo" alt="" />
       <div class="info">
         <span class="title">Meeting Detected</span>
         <span id="subtitle" class="subtitle">A meeting is in progress</span>

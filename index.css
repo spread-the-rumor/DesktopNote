@@ -1,17 +1,24 @@
 :root {
-  --bg: #faf9f7;
-  --bg-alt: #f5f4f1;
-  --surface: #ffffff;
-  --text: #1a1a1a;
-  --muted: #6b7280;
-  --border: #e7e5e1;
-  --accent: #4263eb;
-  --accent-soft: #edf0fe;
-  --green: #2f9e44;
-  --red: #e03131;
-  --gray: #adb5bd;
-  --radius: 12px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.05);
+  /* Glassmorphism dark palette.
+     #1C1C1C near-black · #302A18 dark olive · #FDE4C3 cream · #F6F6F6 off-white */
+  --bg: #1c1c1c;
+  --bg-alt: #232323;
+  --olive: #302a18;
+  --cream: #fde4c3;
+  --surface: rgba(255, 255, 255, 0.06); /* glass fill */
+  --surface-strong: rgba(255, 255, 255, 0.1);
+  --text: #f6f6f6;
+  --muted: rgba(246, 246, 246, 0.55);
+  --border: rgba(253, 228, 195, 0.14); /* faint cream hairline */
+  --accent: var(--cream);
+  --accent-text: #1c1c1c; /* dark text on cream buttons */
+  --accent-soft: rgba(253, 228, 195, 0.14);
+  --green: #4ade80;
+  --red: #f87171;
+  --gray: rgba(246, 246, 246, 0.4);
+  --radius: 14px;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --blur: blur(16px) saturate(120%);
   --sidebar-width: 264px;
 }
 
@@ -35,12 +42,78 @@ body {
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
     sans-serif;
+  /* Subtle dark gradient with warm olive glow, so the glass blur has texture. */
   background: var(--bg);
+  background-image:
+    radial-gradient(900px 600px at 18% -8%, rgba(48, 42, 24, 0.55), transparent 60%),
+    radial-gradient(700px 500px at 100% 110%, rgba(253, 228, 195, 0.05), transparent 55%);
+  background-attachment: fixed;
   color: var(--text);
   font-size: 15px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/* ---- Startup loader overlay ---- */
+.loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  background: var(--bg);
+  background-image: inherit;
+  transition: opacity 0.45s ease;
+}
+
+.loader.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loader-logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 22px;
+  box-shadow: 0 0 40px rgba(253, 228, 195, 0.25);
+  animation: logo-pulse 2s ease-in-out infinite;
+}
+
+.loader-name {
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.loader-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2.5px solid var(--accent-soft);
+  border-top-color: var(--cream);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes logo-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(253, 228, 195, 0.2); }
+  50% { transform: scale(1.04); box-shadow: 0 0 56px rgba(253, 228, 195, 0.35); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Brand logo (sidebar, before the app name) ---- */
+.brand-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  flex: none;
 }
 
 /* ---- Two-pane shell ---- */
@@ -56,7 +129,9 @@ body {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
-  background: var(--bg-alt);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
 }
 
 .sidebar-head {
@@ -73,11 +148,6 @@ body {
   gap: 0.5rem;
   font-weight: 650;
   letter-spacing: -0.01em;
-}
-
-.brand-mark {
-  color: var(--accent);
-  font-size: 0.7rem;
 }
 
 .brand-name {
@@ -138,7 +208,7 @@ body {
 }
 
 .note-item:hover {
-  background: rgba(0, 0, 0, 0.035);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .note-item.active {
@@ -196,7 +266,7 @@ body {
 
 .note-item-delete:hover {
   color: var(--red);
-  background: #fff5f5;
+  background: rgba(248, 113, 113, 0.14);
 }
 
 /* ---- Trash (soft-deleted meetings) ---- */
@@ -241,7 +311,7 @@ body {
 }
 
 .trash-toggle:hover {
-  background: rgba(0, 0, 0, 0.035);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text);
 }
 
@@ -294,7 +364,7 @@ body {
 }
 
 .trash-item:hover {
-  background: rgba(0, 0, 0, 0.035);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .trash-item-info {
@@ -338,7 +408,7 @@ body {
 
 .trash-item-btn.purge:hover {
   color: var(--red);
-  background: #fff5f5;
+  background: rgba(248, 113, 113, 0.14);
 }
 
 /* ---- Status pill ---- */
@@ -370,8 +440,8 @@ body {
 
 .pill.is-recording {
   color: var(--red);
-  border-color: #f5c2c7;
-  background: #fff5f5;
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.14);
 }
 .pill.is-recording .pill-dot {
   background: var(--red);
@@ -380,8 +450,8 @@ body {
 
 .pill.is-ready {
   color: var(--green);
-  border-color: #b2f2bb;
-  background: #f4fce3;
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.14);
 }
 .pill.is-ready .pill-dot {
   background: var(--green);
@@ -389,8 +459,8 @@ body {
 
 .pill.is-error {
   color: var(--red);
-  border-color: #f5c2c7;
-  background: #fff5f5;
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.14);
 }
 .pill.is-error .pill-dot {
   background: var(--red);
@@ -415,7 +485,7 @@ body {
   border-radius: 999px;
   border: 1px solid var(--green);
   background: var(--green);
-  color: #fff;
+  color: #0f2417;
   font-family: inherit;
   font-size: 0.8rem;
   font-weight: 600;
@@ -424,8 +494,8 @@ body {
 }
 
 .record-btn:hover:not(:disabled) {
-  background: #2b8a3e;
-  border-color: #2b8a3e;
+  background: #6ee7a0;
+  border-color: #6ee7a0;
 }
 
 .record-btn:disabled {
@@ -437,18 +507,23 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #fff;
+  background: #0f2417;
   flex: none;
 }
 
 .record-btn.is-recording {
   background: var(--red);
   border-color: var(--red);
+  color: #2a0e0e;
+}
+
+.record-btn.is-recording .record-dot {
+  background: #2a0e0e;
 }
 
 .record-btn.is-recording:hover:not(:disabled) {
-  background: #c92a2a;
-  border-color: #c92a2a;
+  background: #fca5a5;
+  border-color: #fca5a5;
 }
 
 .record-btn.is-recording .record-dot {
@@ -465,7 +540,7 @@ body {
   border-radius: 999px;
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   font-family: inherit;
   font-size: 0.8rem;
   font-weight: 600;
@@ -474,8 +549,8 @@ body {
 }
 
 .huddle-btn:hover:not(:disabled) {
-  background: #3651c9;
-  border-color: #3651c9;
+  background: #ffeed6;
+  border-color: #ffeed6;
 }
 
 .huddle-btn:disabled {
@@ -487,18 +562,23 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--accent-text);
   flex: none;
 }
 
 .huddle-btn.is-recording {
   background: var(--red);
   border-color: var(--red);
+  color: #2a0e0e;
+}
+
+.huddle-btn.is-recording .huddle-dot {
+  background: #2a0e0e;
 }
 
 .huddle-btn.is-recording:hover:not(:disabled) {
-  background: #c92a2a;
-  border-color: #c92a2a;
+  background: #fca5a5;
+  border-color: #fca5a5;
 }
 
 .huddle-btn.is-recording .huddle-dot {
@@ -523,7 +603,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: var(--surface);
+  background: transparent;
 }
 
 /* ---- Empty state ---- */
@@ -622,9 +702,9 @@ body {
 }
 
 .toggle-opt.is-active {
-  background: var(--surface);
-  color: var(--accent);
-  box-shadow: var(--shadow);
+  background: var(--cream);
+  color: var(--accent-text);
+  box-shadow: 0 2px 10px rgba(253, 228, 195, 0.18);
 }
 
 .note-actions {
@@ -860,13 +940,15 @@ body {
   flex-wrap: wrap;
 }
 
-/* Slack-themed channel/person dropdown */
+/* Channel/person dropdown (glass, app accent) */
 .slack-channel {
   max-width: 200px;
   padding: 0.5rem 0.6rem;
   background: var(--surface);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
   color: var(--text);
-  border: 1px solid rgba(74, 21, 75, 0.25); /* Slack aubergine, soft */
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 550;
@@ -878,9 +960,9 @@ body {
 
 .slack-channel:hover:not(:disabled),
 .slack-channel:focus:not(:disabled) {
-  border-color: #4a154b; /* Slack aubergine */
+  border-color: var(--accent);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(74, 21, 75, 0.12);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 .slack-channel:disabled {
@@ -944,8 +1026,8 @@ body {
 }
 
 .action-btn:hover:not(:disabled) {
-  background: var(--bg-alt);
-  border-color: var(--gray);
+  background: var(--surface-strong);
+  border-color: var(--accent-soft);
 }
 
 .action-btn:disabled {
@@ -954,21 +1036,23 @@ body {
 }
 
 .action-btn.is-done {
-  border-color: #b2f2bb;
-  background: #f4fce3;
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.14);
   color: var(--green);
 }
 
 .action-btn.is-error {
-  border-color: #f5c2c7;
-  background: #fff5f5;
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.14);
   color: var(--red);
 }
 
 /* ---- GetOverview (internal PM tool) section ---- */
+/* GetOverview reuses the app's cream accent + glass (no separate brand color —
+   it's an internal tool, not a third-party brand like Slack). */
 :root {
-  --go: #0b7285; /* GetOverview accent (teal) */
-  --go-soft: rgba(11, 114, 133, 0.12);
+  --go: var(--cream);
+  --go-soft: var(--accent-soft);
 }
 
 /* .getoverview is a .dest-panel (layout comes from there); it only carries the
@@ -985,8 +1069,10 @@ body {
   max-width: 220px;
   padding: 0.5rem 0.6rem;
   background: var(--surface);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
   color: var(--text);
-  border: 1px solid var(--go-soft);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 550;
@@ -1015,8 +1101,10 @@ body {
   width: 2rem;
   height: 2rem;
   background: var(--surface);
-  color: var(--go);
-  border: 1px solid var(--go-soft);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  color: var(--cream);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 1rem;
   font-family: inherit;
@@ -1025,8 +1113,8 @@ body {
 }
 
 .go-icon-btn:hover:not(:disabled) {
-  border-color: var(--go);
-  background: var(--bg-alt);
+  border-color: var(--accent-soft);
+  background: var(--surface-strong);
 }
 
 .go-open-link {
@@ -1054,8 +1142,8 @@ body {
 }
 
 .go-btn:hover:not(:disabled) {
-  border-color: var(--go);
-  background: var(--bg-alt);
+  border-color: var(--accent-soft);
+  background: var(--surface-strong);
 }
 
 /* ---- Create-tasks editor (revealed rows) ---- */
@@ -1065,7 +1153,9 @@ body {
   gap: 0.6rem;
   margin-top: 0.4rem;
   padding: 0.75rem;
-  background: var(--bg-alt);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
   border: 1px solid var(--border);
   border-radius: 10px;
 }
@@ -1116,17 +1206,17 @@ body {
 
 .go-task-row .go-row-remove:hover {
   color: var(--red);
-  background: #fff5f5;
+  background: rgba(248, 113, 113, 0.14);
 }
 
 .go-task-row.is-done input {
-  border-color: #b2f2bb;
-  background: #f4fce3;
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.14);
 }
 
 .go-task-row.is-error input {
-  border-color: #f5c2c7;
-  background: #fff5f5;
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.14);
 }
 
 .go-tasks-foot {
@@ -1260,4 +1350,33 @@ body {
 
 .settings-status.is-error {
   color: var(--red);
+}
+
+/* ---- Dark dropdown lists ---- */
+/* The closed <select> control inherits the glass fill + light text fine, but the
+   open option list is OS-rendered — force a dark background so text stays legible. */
+select option,
+select optgroup {
+  background: #1c1c1c;
+  color: var(--text);
+}
+
+/* Inputs/selects: cream focus ring on the dark glass. */
+.search-input:focus,
+.chat-input:focus,
+.settings-input:focus,
+.note-title:focus {
+  border-color: var(--accent);
+}
+
+.settings-input:focus {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Glassify the primary card surfaces that previously read as opaque panels. */
+.pill,
+.settings-btn,
+.action-btn {
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
 }

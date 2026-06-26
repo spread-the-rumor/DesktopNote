@@ -2,6 +2,11 @@
 // the `window.popup` bridge from popupPreload.js. Main closes this window when
 // the recording starts or is dismissed, so we don't manage window lifecycle here.
 
+import logoUrl from './assets/logo.png';
+
+const logoEl = document.getElementById('popup-logo');
+if (logoEl) logoEl.src = logoUrl;
+
 const startBtn = document.getElementById('start-btn');
 const startText = startBtn.querySelector('.start-text');
 const dismissBtn = document.getElementById('dismiss-btn');

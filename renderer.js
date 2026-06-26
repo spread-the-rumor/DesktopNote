@@ -9,6 +9,7 @@
  */
 
 import './index.css';
+import logoUrl from './assets/logo.png';
 
 const statusEl = document.getElementById('status');
 const statusTextEl = statusEl.querySelector('.pill-text');
@@ -1269,11 +1270,19 @@ searchInputEl.addEventListener('input', (e) => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Point the brand + loader logos at the bundled asset URL.
+  for (const id of ['brand-logo', 'loader-logo']) {
+    const img = document.getElementById(id);
+    if (img) img.src = logoUrl;
+  }
   loadMeetings();
   loadTrash();
   loadSlackTargets();
   loadGetOverviewProjects();
   refreshConfiguredState();
+  // Fade the startup loader out once the first paint is done.
+  const loader = document.getElementById('loader');
+  if (loader) requestAnimationFrame(() => loader.classList.add('is-hidden'));
   // Show the running app version in the sidebar (also a visible marker that an
   // auto-update applied).
   window.recall?.getAppVersion?.().then((v) => {
