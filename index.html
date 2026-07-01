@@ -125,6 +125,15 @@
                 </svg>
                 <span class="action-text">Transcript</span>
               </button>
+              <!-- Shown only when the AI summary failed to generate (see
+                   summaryFailed in renderer.js): re-runs the summary from the
+                   stored transcript. Hidden once a valid summary exists. -->
+              <button id="regenerate-summary-btn" class="action-btn" type="button" title="Regenerate summary" hidden>
+                <svg class="action-icon" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                  <path fill="currentColor" d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.75 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+                </svg>
+                <span class="action-text">Regenerate</span>
+              </button>
             </div>
 
             <!-- Destination switcher: a "Send to" heading + a Slack/GetOverview

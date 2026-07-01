@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('recall', {
   deleteMeetingPermanent: (payload) => ipcRenderer.invoke('delete-meeting-permanent', payload),
   // AI chat about a meeting — returns { ok, answer } | { ok:false, error }.
   askMeeting: (payload) => ipcRenderer.invoke('ask-meeting', payload),
+  // Regenerate a meeting's AI summary from its transcript — { ok, summary }.
+  regenerateSummary: (payload) => ipcRenderer.invoke('regenerate-summary', payload),
   // GetOverview (internal PM tool) — list projects for the dropdown, create a
   // task from an action item, submit the summary/transcript, and AI-extract
   // structured action items. Each returns { ok, ... } | { ok:false, error }.

@@ -602,9 +602,17 @@ async function extractActionItems({ transcript, summary }) {
   return { ok: true, items: result.items || [], note: result.error };
 }
 
+// Regenerate a meeting's AI summary from its stored transcript (for the UI's
+// "Regenerate" retry when the original summary failed). Non-streaming — the
+// renderer just wants the final string. summarizeTranscript never throws.
+async function regenerateSummary({ transcript }) {
+  const summary = await summarizeTranscript(transcript, [], { stream: false });
+  return { ok: true, summary };
+}
+
 // Support both `node server.js` (standalone) and require() from main.js.
 if (require.main === module) {
   start();
 }
 
-module.exports = { app, start, setRecordingCompleteHandler, processCompletedUpload, sendToSlack, listSlackChannels, listSlackUsers, formatTranscript, askMeeting, listGetOverviewProjects, createGetOverviewTask, sendTranscriptToGetOverview, extractActionItems };
+module.exports = { app, start, setRecordingCompleteHandler, processCompletedUpload, sendToSlack, listSlackChannels, listSlackUsers, formatTranscript, askMeeting, listGetOverviewProjects, createGetOverviewTask, sendTranscriptToGetOverview, extractActionItems, regenerateSummary };

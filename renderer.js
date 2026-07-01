@@ -44,6 +44,7 @@ const slackBtnText = slackBtn.querySelector('.slack-btn-text');
 const slackChannelEl = document.getElementById('slack-channel');
 const saveTranscriptBtn = document.getElementById('save-transcript-btn');
 const saveRecordingBtn = document.getElementById('save-recording-btn');
+const regenerateBtn = document.getElementById('regenerate-summary-btn');
 // Header sections shown only on the Summary view (hidden on Transcript/Chat).
 const noteActionsEl = document.querySelector('.note-actions');
 const sendToEl = document.querySelector('.send-to');
@@ -671,6 +672,12 @@ const setActionLabel = (btn, text) => {
   }
 };
 
+// A meeting's summary "failed" when it's empty or is one of the sentinel
+// "Summary unavailable — …" strings summarize.js returns on any failure. Used
+// to show the Regenerate button only when a retry is warranted.
+const summaryFailed = (m) =>
+  !m?.content || /^summary unavailable/i.test(m.content.trim());
+
 const showEditor = (id) => {
   const meeting = findMeeting(id);
   if (!meeting) {
@@ -706,6 +713,13 @@ const showEditor = (id) => {
   saveRecordingBtn.disabled = false;
   saveRecordingBtn.classList.remove('is-done', 'is-error');
   setActionLabel(saveRecordingBtn, 'Download');
+
+  // Regenerate is shown only when the summary failed (and a transcript exists
+  // to retry from); reset its label/state like the sibling action buttons.
+  regenerateBtn.hidden = !(summaryFailed(meeting) && meeting.transcript);
+  regenerateBtn.disabled = false;
+  regenerateBtn.classList.remove('is-done', 'is-error');
+  setActionLabel(regenerateBtn, 'Regenerate');
 
   // Reset to the Slack destination for each opened note (consistent with
   // defaulting the view to Summary).
@@ -1439,4 +1453,38 @@ saveRecordingBtn.addEventListener('click', () =>
       videoUrl: meeting.videoUrl,
     }),
   ),
+);
+
+// Retry a failed AI summary from the stored transcript. On success, persist the
+// new summary (content + summary), refresh the editor, and hide the button (the
+// summary is valid now). A returned "Summary unavailable…" string is a failure.
+regenerateBtn.addEventListener('click', () =>
+  runSave(regenerateBtn, 'Regenerate', 'Regenerating…', 'Done ✓', async (meeting) => {
+    if (!meeting.transcript) {
+      return { ok: false, error: 'no transcript to summarize' };
+    }
+    const res = await window.recall?.regenerateSummary({ transcript: meeting.transcript });
+    const summary = res?.summary;
+    if (!res?.ok || summaryFailed({ content: summary })) {
+      return { ok: false, error: (summary || res?.error || 'regeneration failed').replace(/^summary unavailable — /i, '') };
+    }
+
+    const saved = await window.recall?.updateMeeting({
+      id: meeting.id,
+      patch: { content: summary, summary },
+    });
+    if (!saved?.ok) {
+      return { ok: false, error: saved?.error || 'failed to save' };
+    }
+
+    const idx = meetings.findIndex((m) => m.id === meeting.id);
+    if (idx !== -1) {
+      meetings[idx] = saved.meeting;
+    }
+    if (currentId === meeting.id) {
+      editorEl.value = summary;
+    }
+    regenerateBtn.hidden = true;
+    return { ok: true };
+  }),
 );

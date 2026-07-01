@@ -427,6 +427,10 @@ app.whenReady().then(async () => {
   // Renderer → main → backend: answer a chat question about a meeting.
   ipcMain.handle('ask-meeting', async (_event, payload) => backend.askMeeting(payload));
 
+  // Renderer → main → backend: re-run the AI summary from a meeting's stored
+  // transcript (the "Regenerate" retry shown when the original summary failed).
+  ipcMain.handle('regenerate-summary', async (_event, payload) => backend.regenerateSummary(payload));
+
   // Renderer → main → backend: GetOverview (internal PM tool) integration —
   // list projects for the dropdown, create tasks from action items, submit the
   // summary/transcript, and AI-extract structured action items for the editor.
