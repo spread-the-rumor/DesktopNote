@@ -19,6 +19,7 @@ const recordBtn = document.getElementById('record-btn');
 const recordTextEl = recordBtn.querySelector('.record-text');
 const notesListEl = document.getElementById('notes-list');
 const searchInputEl = document.getElementById('search-input');
+const rangeFilterEl = document.getElementById('range-filter');
 const trashToggleEl = document.getElementById('trash-toggle');
 const trashCountEl = document.getElementById('trash-count');
 const trashListEl = document.getElementById('trash-list');
@@ -28,14 +29,16 @@ const noteTitleEl = document.getElementById('note-title');
 const noteMetaEl = document.getElementById('note-meta');
 const editorEl = document.getElementById('simple-editor');
 const transcriptViewEl = document.getElementById('transcript-view');
-const chatViewEl = document.getElementById('chat-view');
+const chatFabEl = document.getElementById('chat-fab');
+const chatPanelEl = document.getElementById('chat-panel');
+const chatClearBtn = document.getElementById('chat-clear');
+const chatCloseBtn = document.getElementById('chat-close');
 const chatMessagesEl = document.getElementById('chat-messages');
 const chatFormEl = document.getElementById('chat-form');
 const chatInputEl = document.getElementById('chat-input');
 const chatSendBtn = document.getElementById('chat-send');
 const viewSummaryBtn = document.getElementById('view-summary-btn');
 const viewTranscriptBtn = document.getElementById('view-transcript-btn');
-const viewChatBtn = document.getElementById('view-chat-btn');
 const saveStateEl = document.getElementById('save-state');
 const videoLinkEl = document.getElementById('video-link');
 const savedPathEl = document.getElementById('saved-path');
@@ -93,6 +96,18 @@ let trashExpanded = false;
 let currentView = 'summary';
 // Current sidebar search query (lowercased); empty string = show all meetings.
 let searchQuery = '';
+// Date-range filter for the sidebar list: 'all' | 'week' | 'month'.
+let rangeFilter = 'all';
+// Which month groups (keyed 'YYYY-MM') are expanded in the sidebar. Seeded once
+// with the current month so history stays short as it grows.
+const expandedMonths = new Set();
+let monthsSeeded = false;
+// The live AI chat bubble currently being streamed into (null when idle).
+let streamingBubble = null;
+// Inline two-click confirm state for the "Clear chat" button (avoids the native
+// confirm() dialog, which wedges input focus in Electron's renderer).
+let clearArmed = false;
+let clearTimer = null;
 // Whether a manual "Huddle" recording is in progress.
 let isHuddling = false;
 // Whether a detected-meeting recording (via the in-app "Start Recording" button
@@ -325,6 +340,74 @@ const meetingMatches = (meeting, q) => {
   return false;
 };
 
+// Is `iso` within the selected date range? 'week' = last 7 days, 'month' = same
+// calendar month + year as now, 'all' = everything.
+const inRange = (iso, range) => {
+  if (range === 'all') {
+    return true;
+  }
+  const date = iso ? new Date(iso) : null;
+  if (!date || Number.isNaN(date.getTime())) {
+    return false;
+  }
+  const now = new Date();
+  if (range === 'week') {
+    return now - date <= 7 * 86400000;
+  }
+  if (range === 'month') {
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  }
+  return true;
+};
+
+// A meeting's month-group key ('YYYY-MM') and human label ('July 2026').
+const monthKey = (iso) => {
+  const d = iso ? new Date(iso) : new Date();
+  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+  return `${safe.getFullYear()}-${String(safe.getMonth() + 1).padStart(2, '0')}`;
+};
+const monthLabel = (key) => {
+  const [y, m] = key.split('-').map(Number);
+  return new Date(y, m - 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+};
+
+// Build one .note-item card for a meeting (main button + hover-to-delete).
+const buildNoteItem = (meeting) => {
+  const item = document.createElement('div');
+  item.className = 'note-item';
+  if (meeting.id === currentId) {
+    item.classList.add('active');
+  }
+
+  const main = document.createElement('button');
+  main.className = 'note-item-main';
+  main.type = 'button';
+
+  const title = document.createElement('span');
+  title.className = 'note-item-title';
+  title.textContent = meeting.title || 'Untitled meeting';
+
+  const date = document.createElement('span');
+  date.className = 'note-item-date';
+  date.textContent = relativeDate(meeting.date);
+
+  main.append(title, date);
+  main.addEventListener('click', () => showEditor(meeting.id));
+
+  const del = document.createElement('button');
+  del.className = 'note-item-delete';
+  del.type = 'button';
+  del.title = 'Delete note';
+  del.textContent = '🗑';
+  del.addEventListener('click', (e) => {
+    e.stopPropagation();
+    deleteNote(meeting.id);
+  });
+
+  item.append(main, del);
+  return item;
+};
+
 const renderMeetingList = () => {
   notesListEl.innerHTML = '';
 
@@ -336,50 +419,81 @@ const renderMeetingList = () => {
     return;
   }
 
-  const visible = sortedMeetings().filter((m) => meetingMatches(m, searchQuery));
+  const visible = sortedMeetings().filter(
+    (m) => meetingMatches(m, searchQuery) && inRange(m.date, rangeFilter),
+  );
 
   if (visible.length === 0) {
     const p = document.createElement('p');
     p.className = 'notes-empty';
-    p.textContent = `No meetings match “${searchQuery}”.`;
+    p.textContent = searchQuery
+      ? `No meetings match “${searchQuery}”.`
+      : 'No meetings in this range.';
     notesListEl.append(p);
     return;
   }
 
+  // Seed the expanded set with the current month once, so the newest group is
+  // open on first load and older ones stay collapsed.
+  if (!monthsSeeded) {
+    expandedMonths.add(monthKey(new Date().toISOString()));
+    monthsSeeded = true;
+  }
+
+  // Group by month, preserving the newest-first order of `visible`.
+  const groups = new Map();
   for (const meeting of visible) {
-    const item = document.createElement('div');
-    item.className = 'note-item';
-    if (meeting.id === currentId) {
-      item.classList.add('active');
+    const key = monthKey(meeting.date);
+    if (!groups.has(key)) {
+      groups.set(key, []);
     }
+    groups.get(key).push(meeting);
+  }
 
-    const main = document.createElement('button');
-    main.className = 'note-item-main';
-    main.type = 'button';
+  for (const [key, items] of groups) {
+    const group = document.createElement('div');
+    group.className = 'month-group';
 
-    const title = document.createElement('span');
-    title.className = 'note-item-title';
-    title.textContent = meeting.title || 'Untitled meeting';
+    const header = document.createElement('button');
+    header.className = 'month-header';
+    header.type = 'button';
+    const expanded = expandedMonths.has(key);
+    header.setAttribute('aria-expanded', String(expanded));
 
-    const date = document.createElement('span');
-    date.className = 'note-item-date';
-    date.textContent = relativeDate(meeting.date);
+    const label = document.createElement('span');
+    label.className = 'month-label';
+    label.textContent = monthLabel(key);
 
-    main.append(title, date);
-    main.addEventListener('click', () => showEditor(meeting.id));
+    const count = document.createElement('span');
+    count.className = 'month-count';
+    count.textContent = String(items.length);
 
-    const del = document.createElement('button');
-    del.className = 'note-item-delete';
-    del.type = 'button';
-    del.title = 'Delete note';
-    del.textContent = '🗑';
-    del.addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteNote(meeting.id);
+    const chevron = document.createElement('span');
+    chevron.className = 'month-chevron';
+    chevron.textContent = '▸';
+
+    const left = document.createElement('span');
+    left.className = 'month-header-left';
+    left.append(label, count);
+    header.append(left, chevron);
+    header.addEventListener('click', () => {
+      if (expandedMonths.has(key)) {
+        expandedMonths.delete(key);
+      } else {
+        expandedMonths.add(key);
+      }
+      renderMeetingList();
     });
 
-    item.append(main, del);
-    notesListEl.append(item);
+    const list = document.createElement('div');
+    list.className = 'month-items';
+    list.hidden = !expanded;
+    for (const meeting of items) {
+      list.append(buildNoteItem(meeting));
+    }
+
+    group.append(header, list);
+    notesListEl.append(group);
   }
 };
 
@@ -523,29 +637,22 @@ const renderTranscript = (transcript) => {
   }
 };
 
-// Switch between the editable summary, the read-only transcript, and the chat.
+// Switch between the editable summary and the read-only transcript. Chat lives
+// in a floating bubble, independent of the view.
 const setView = (view) => {
   currentView = view;
   editorEl.hidden = view !== 'summary';
   transcriptViewEl.hidden = view !== 'transcript';
-  chatViewEl.hidden = view !== 'chat';
   // The action buttons (recording / transcript / send-to) act on the summary,
-  // so they only show on the Summary view — Transcript shows only the
-  // transcript, Chat shows only the chat.
+  // so they only show on the Summary view.
   noteActionsEl.hidden = view !== 'summary';
   sendToEl.hidden = view !== 'summary';
   viewSummaryBtn.classList.toggle('is-active', view === 'summary');
   viewTranscriptBtn.classList.toggle('is-active', view === 'transcript');
-  viewChatBtn.classList.toggle('is-active', view === 'chat');
-  if (view === 'chat') {
-    chatInputEl.focus();
-    scrollChatToBottom();
-  }
 };
 
 viewSummaryBtn.addEventListener('click', () => setView('summary'));
 viewTranscriptBtn.addEventListener('click', () => setView('transcript'));
-viewChatBtn.addEventListener('click', () => setView('chat'));
 
 // ---- "Send to" destination switcher (Slack | GetOverview) ----
 
@@ -566,6 +673,77 @@ destGoBtn.addEventListener('click', () => setDest('getoverview'));
 const scrollChatToBottom = () => {
   chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
 };
+
+// Floating chat bubble: toggle the panel, focus the input, scroll to newest.
+const openChatPanel = () => {
+  chatPanelEl.hidden = false;
+  chatFabEl.classList.add('is-open');
+  chatInputEl.focus();
+  scrollChatToBottom();
+};
+const closeChatPanel = () => {
+  chatPanelEl.hidden = true;
+  chatFabEl.classList.remove('is-open');
+  disarmClear();
+};
+chatFabEl.addEventListener('click', () => {
+  if (chatPanelEl.hidden) {
+    openChatPanel();
+  } else {
+    closeChatPanel();
+  }
+});
+chatCloseBtn.addEventListener('click', closeChatPanel);
+
+// Reset the Clear button out of its "Clear?" confirming state.
+const disarmClear = () => {
+  clearArmed = false;
+  if (clearTimer) {
+    clearTimeout(clearTimer);
+    clearTimer = null;
+  }
+  chatClearBtn.classList.remove('is-confirm');
+  chatClearBtn.textContent = 'Clear';
+};
+
+// Clear the thread with an inline two-click confirm (no native confirm() — it
+// steals input focus in Electron). First click arms; second click wipes.
+chatClearBtn.addEventListener('click', async () => {
+  const meeting = findMeeting(currentId);
+  if (!meeting) {
+    return;
+  }
+
+  if (!clearArmed) {
+    clearArmed = true;
+    chatClearBtn.classList.add('is-confirm');
+    chatClearBtn.textContent = 'Clear?';
+    clearTimer = setTimeout(disarmClear, 3000);
+    return;
+  }
+
+  disarmClear();
+  meeting.chat = [];
+  renderChat(meeting);
+  chatInputEl.focus();
+  const saved = await window.recall.updateMeeting({ id: meeting.id, patch: { chat: [] } });
+  if (saved?.ok && saved.meeting) {
+    const idx = meetings.findIndex((m) => m.id === meeting.id);
+    if (idx !== -1) {
+      meetings[idx] = saved.meeting;
+    }
+  }
+});
+
+// Stream partial answer text into the live bubble as it generates.
+window.recall?.onChatToken((payload) => {
+  if (!streamingBubble) {
+    return;
+  }
+  streamingBubble.classList.remove('is-thinking');
+  streamingBubble.textContent = payload.text;
+  scrollChatToBottom();
+});
 
 // Append a message bubble; returns the element so a transient one can be
 // replaced in place. `role` is 'user' | 'ai'; `thinking` styles a placeholder.
@@ -624,36 +802,42 @@ chatFormEl.addEventListener('submit', async (e) => {
   chatInputEl.disabled = true;
   chatSendBtn.disabled = true;
   const thinking = appendChatBubble('ai', 'Thinking…', true);
+  // Stream tokens into this bubble via the onChatToken listener above.
+  streamingBubble = thinking;
 
-  const res = await window.recall.askMeeting({
-    transcript: meeting.transcript,
-    question,
-    history,
-  });
-  const answer = res?.ok ? res.answer : `Chat failed — ${res?.error || 'unknown error'}`;
+  try {
+    const res = await window.recall.askMeeting({
+      transcript: meeting.transcript,
+      question,
+      history,
+    });
+    const answer = res?.ok ? res.answer : `Chat failed — ${res?.error || 'unknown error'}`;
 
-  // Replace the placeholder with the real answer and persist the thread.
-  thinking.classList.remove('is-thinking');
-  thinking.textContent = answer;
-  scrollChatToBottom();
+    // The resolved answer is authoritative; finalize the (possibly streamed) bubble.
+    thinking.classList.remove('is-thinking');
+    thinking.textContent = answer;
+    scrollChatToBottom();
 
-  meeting.chat.push({ role: 'user', content: question });
-  meeting.chat.push({ role: 'assistant', content: answer });
+    meeting.chat.push({ role: 'user', content: question });
+    meeting.chat.push({ role: 'assistant', content: answer });
 
-  const saved = await window.recall.updateMeeting({
-    id: meeting.id,
-    patch: { chat: meeting.chat },
-  });
-  if (saved?.ok && saved.meeting) {
-    const idx = meetings.findIndex((m) => m.id === meeting.id);
-    if (idx !== -1) {
-      meetings[idx] = saved.meeting;
+    const saved = await window.recall.updateMeeting({
+      id: meeting.id,
+      patch: { chat: meeting.chat },
+    });
+    if (saved?.ok && saved.meeting) {
+      const idx = meetings.findIndex((m) => m.id === meeting.id);
+      if (idx !== -1) {
+        meetings[idx] = saved.meeting;
+      }
     }
+  } finally {
+    // Always re-enable the input — a rejected invoke must not leave it dead.
+    streamingBubble = null;
+    chatInputEl.disabled = false;
+    chatSendBtn.disabled = false;
+    chatInputEl.focus();
   }
-
-  chatInputEl.disabled = false;
-  chatSendBtn.disabled = false;
-  chatInputEl.focus();
 });
 
 // ---- Editor ----
@@ -688,6 +872,11 @@ const showEditor = (id) => {
   settingsViewEl.hidden = true;
   emptyStateEl.hidden = true;
   noteEl.hidden = false;
+  chatFabEl.hidden = false;
+  closeChatPanel();
+  // Clear any stuck disabled state from a prior errored request.
+  chatInputEl.disabled = false;
+  chatSendBtn.disabled = false;
 
   noteTitleEl.value = meeting.title || '';
   noteMetaEl.textContent = `${fullDate(meeting.date)} · ${meeting.recordingId}`;
@@ -750,6 +939,8 @@ const showEditor = (id) => {
   savedPathEl.hidden = true;
   savedPathEl.textContent = '';
 
+  // Ensure the open note's month group is expanded so the active highlight shows.
+  expandedMonths.add(monthKey(meeting.date));
   renderMeetingList();
 };
 
@@ -758,6 +949,8 @@ const showEmpty = () => {
   settingsViewEl.hidden = true;
   noteEl.hidden = true;
   emptyStateEl.hidden = false;
+  chatFabEl.hidden = true;
+  closeChatPanel();
   renderMeetingList();
 };
 
@@ -769,6 +962,8 @@ const showSettings = async () => {
   noteEl.hidden = true;
   emptyStateEl.hidden = true;
   settingsViewEl.hidden = false;
+  chatFabEl.hidden = true;
+  closeChatPanel();
   settingsStatusEl.textContent = '';
   settingsStatusEl.classList.remove('is-ok', 'is-error');
 
@@ -1280,6 +1475,11 @@ goSubmitTasksBtn.addEventListener('click', async () => {
 // rows are listed; the open note stays open even if it's filtered out.
 searchInputEl.addEventListener('input', (e) => {
   searchQuery = e.target.value.trim().toLowerCase();
+  renderMeetingList();
+});
+
+rangeFilterEl.addEventListener('change', (e) => {
+  rangeFilter = e.target.value;
   renderMeetingList();
 });
 

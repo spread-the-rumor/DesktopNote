@@ -424,8 +424,15 @@ app.whenReady().then(async () => {
   // Renderer → main → backend: list Slack people for DM targets in the dropdown.
   ipcMain.handle('list-slack-users', async () => backend.listSlackUsers());
 
-  // Renderer → main → backend: answer a chat question about a meeting.
-  ipcMain.handle('ask-meeting', async (_event, payload) => backend.askMeeting(payload));
+  // Renderer → main → backend: answer a chat question about a meeting. The
+  // final { ok, answer } resolves the invoke (completion signal); partial text
+  // streams to the same webContents via 'chat-token' as it generates.
+  ipcMain.handle('ask-meeting', async (event, payload) =>
+    backend.askMeeting({
+      ...payload,
+      progressCallback: (text) => event.sender.send('chat-token', { text }),
+    }),
+  );
 
   // Renderer → main → backend: re-run the AI summary from a meeting's stored
   // transcript (the "Regenerate" retry shown when the original summary failed).

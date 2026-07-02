@@ -35,6 +35,53 @@ function renderTranscript(transcript) {
   return transcript.map(segmentToLine).join('\n');
 }
 
+// Stream an SSE chat-completions response: accumulate delta.content, invoking
+// progressCallback(accumulatedText) on each chunk. Returns the full text.
+// Mirrors summarize.js's readStream (kept separate to preserve module
+// independence).
+async function readStream(response, progressCallback) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let accumulated = '';
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) {
+      break;
+    }
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex;
+    while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, newlineIndex).trim();
+      buffer = buffer.slice(newlineIndex + 1);
+
+      if (!line.startsWith('data:')) {
+        continue;
+      }
+      const data = line.slice(5).trim();
+      if (data === '[DONE]') {
+        return accumulated;
+      }
+      try {
+        const json = JSON.parse(data);
+        const delta = json.choices?.[0]?.delta?.content;
+        if (delta) {
+          accumulated += delta;
+          if (typeof progressCallback === 'function') {
+            progressCallback(accumulated);
+          }
+        }
+      } catch {
+        // Ignore keep-alive comments or partial/non-JSON data lines.
+      }
+    }
+  }
+
+  return accumulated;
+}
+
 // Keep only well-formed prior turns, so a malformed persisted thread can't
 // break the request.
 function sanitizeHistory(history) {
@@ -57,9 +104,11 @@ function sanitizeHistory(history) {
  * @param {Array} transcript Recall transcript segments (native shape accepted).
  * @param {string} question The user's question.
  * @param {Array<{role:'user'|'assistant',content:string}>} [history] Prior turns.
+ * @param {{stream?:boolean, progressCallback?:(text:string)=>void}} [opts]
  * @returns {Promise<string>} The answer, or a human-readable error string.
  */
-async function answerQuestion(transcript, question, history = []) {
+async function answerQuestion(transcript, question, history = [], opts = {}) {
+  const { stream = false, progressCallback } = opts;
   const apiKey = process.env.REQUESTY_API_KEY || process.env.RECALLAI_REQUEST_KEY;
   if (!apiKey) {
     return 'Chat unavailable — REQUESTY_API_KEY is not set in .env';
@@ -82,13 +131,18 @@ async function answerQuestion(transcript, question, history = []) {
         'content-type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model: MODEL, stream: false, messages }),
+      body: JSON.stringify({ model: MODEL, stream, messages }),
     });
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
       console.error('chat failed:', response.status, detail.slice(0, 300));
       return `Chat unavailable — requesty.ai returned ${response.status}`;
+    }
+
+    if (stream) {
+      const text = await readStream(response, progressCallback);
+      return text.trim() || 'Chat unavailable — the model returned no content.';
     }
 
     const json = await response.json();

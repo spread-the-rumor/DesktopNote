@@ -587,8 +587,11 @@ function start(port = 3100) {
 // Answer a chat question about a meeting, grounded in its transcript. Wraps
 // chat.js's answerQuestion (which never throws) into the { ok, ... } shape the
 // renderer's IPC actions use.
-async function askMeeting({ transcript, question, history }) {
-  const answer = await answerQuestion(transcript, question, history);
+async function askMeeting({ transcript, question, history, progressCallback }) {
+  const answer = await answerQuestion(transcript, question, history, {
+    stream: typeof progressCallback === 'function',
+    progressCallback,
+  });
   return { ok: true, answer };
 }
 

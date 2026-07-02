@@ -46,6 +46,11 @@
             autocomplete="off"
             spellcheck="false"
           />
+          <select id="range-filter" class="range-filter" aria-label="Filter by date range">
+            <option value="all">All time</option>
+            <option value="week">This week</option>
+            <option value="month">This month</option>
+          </select>
         </div>
         <div id="notes-list" class="notes-list">
           <!-- .note-item cards injected by renderer.js -->
@@ -101,7 +106,6 @@
             <div class="note-toggle" role="tablist">
               <button id="view-summary-btn" class="toggle-opt is-active" type="button">Summary</button>
               <button id="view-transcript-btn" class="toggle-opt" type="button">Transcript</button>
-              <button id="view-chat-btn" class="toggle-opt" type="button">Chat</button>
             </div>
             <div class="note-actions">
               <!-- Recording controls: a play link (opens the video in the
@@ -206,8 +210,15 @@
           <!-- Read-only full transcript; shown when the Transcript toggle is active -->
           <div id="transcript-view" class="transcript-body" hidden></div>
 
-          <!-- AI chat grounded in this meeting's transcript -->
-          <div id="chat-view" class="chat-view" hidden>
+          <!-- AI chat grounded in this meeting's transcript. Floating bubble
+               (bottom-right), available on every view. -->
+          <button id="chat-fab" class="chat-fab" type="button" title="Ask about this meeting" hidden>💬</button>
+          <div id="chat-panel" class="chat-panel" hidden>
+            <div class="chat-panel-head">
+              <span class="chat-panel-title">Ask about this meeting</span>
+              <button id="chat-clear" class="chat-panel-btn" type="button" title="Clear chat">Clear</button>
+              <button id="chat-close" class="chat-panel-btn" type="button" title="Close" aria-label="Close">✕</button>
+            </div>
             <div id="chat-messages" class="chat-messages"></div>
             <form id="chat-form" class="chat-form">
               <input
