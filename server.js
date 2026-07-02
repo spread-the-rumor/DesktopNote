@@ -56,6 +56,15 @@ app.post('/api/create_sdk_recording', async (req, res) => {
     // is what requests a transcript: without it Recall uploads the media but
     // never generates one, so media_shortcuts.transcript stays absent. We use
     // recallai_streaming (Recall's own transcription — no third-party key).
+    //
+    // diarization.use_separate_streams_when_available transcribes EACH
+    // participant's audio stream separately instead of guessing the speaker from
+    // one mixed stream. On Teams especially (no native active-speaker event),
+    // the mixed-stream heuristic mis-attributes segments — notably tagging the
+    // local user with speech/silence they didn't produce (mic bleed into active-
+    // speaker detection; a documented Recall bug class). Separate streams ties a
+    // segment to the stream it came from, removing the guess. Supported for
+    // Teams/Zoom/Meet; ~1.8× cost only during overlap. See docs.recall.ai/docs/diarization.
     const response = await fetch(`${RECALL_API_URL}/api/v1/sdk_upload/`, {
       method: 'POST',
       headers: authHeaders,
@@ -64,6 +73,7 @@ app.post('/api/create_sdk_recording', async (req, res) => {
           video_mixed_mp4: {},
           transcript: {
             provider: { recallai_streaming: {} },
+            diarization: { use_separate_streams_when_available: true },
           },
         },
       }),
